@@ -159,7 +159,7 @@ This will automatically:
 1. Download the latest earnings documents for Amazon
 2. Store them in a structured way in the local storage
 3. Analyze them using Gemini API with a focus on GCP strategic implications
-4. Save the results in both JSON and executive-friendly Markdown formats
+4. Save the results in executive-friendly Markdown format for email
 5. Send the analysis by email if email functionality is enabled
 
 ### Using a Custom URL
@@ -306,14 +306,14 @@ The `config/company_config.json` file uses the following structure:
           "Q1": {
             "date": "May 1, 2025",
             "time": "after-market close",
-            "earnings_release_pdf": "https://investor.company.com/earnings.pdf",
-            "call_transcript_pdf": "https://investor.company.com/transcript.pdf"
+            "earnings_release": "https://investor.company.com/earnings.pdf",
+            "call_transcript": "https://investor.company.com/transcript.pdf"
           },
           "Q2": {
             "expected_date": "August 1, 2025",
             "expected_time": "after-market close",
-            "earnings_release_pdf": null,
-            "call_transcript_pdf": null
+            "earnings_release": null,
+            "call_transcript": null
           }
         }
       }
@@ -347,8 +347,7 @@ The `config/company_config.json` file uses the following structure:
 │   ├── msft/             # Documents for Microsoft
 │   └── ...               # Other companies
 └── results/              # Analysis results (created on first run)
-    ├── amzn_2025_Q1_combined_gcp_impact.md  # GCP-focused markdown
-    └── amzn_2025_Q1_analysis.json           # Complete analysis data
+    └── amzn_2025_Q1_combined_gcp_impact.md  # GCP-focused markdown for email
 ```
 
 ## Troubleshooting

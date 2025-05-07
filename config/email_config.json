@@ -7,7 +7,7 @@
     "ziwen.mail@gmail.com"
   ],
   "credentials_path": ".env:GMAIL_CREDENTIALS_PATH",
-  "token_path": ".env:GMAIL_TOKEN_PATH",
+  "token_path": "token.pickle",
   "email_subject_prefix": "GCP Impact Analysis: ",
   "html_enabled": true
 } 

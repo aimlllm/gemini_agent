@@ -1,5 +1,4 @@
 import os
-import json
 import logging
 from datetime import datetime
 import argparse
@@ -212,14 +211,6 @@ def main():
         else:
             identifier = f"custom_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
         
-        # Save JSON with analysis (for record-keeping)
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        output_filename = f"{identifier}_combined_analysis_{timestamp}.json"
-        output_path = os.path.join(args.output_dir, output_filename)
-        
-        with open(output_path, 'w') as f:
-            json.dump(analysis, f, indent=2)
-        
         # Generate email-friendly markdown
         email_markdown = generate_email_markdown(analysis, config_manager)
         
@@ -230,9 +221,9 @@ def main():
         with open(analysis_path, 'w') as f:
             f.write(email_markdown)
         
-        logging.info(f"Combined GCP impact analysis saved to {analysis_path} (email-friendly format)")
+        logging.info(f"GCP impact analysis saved to {analysis_path} (email-friendly format)")
         
-        # Send email using the configuration in email_config.json
+        # Send email using the email configuration
         try:
             # Check if email_config.json exists
             if os.path.exists(config.EMAIL_CONFIG_PATH):

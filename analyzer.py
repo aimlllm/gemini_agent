@@ -8,6 +8,14 @@ class EarningsAnalyzer:
     def __init__(self):
         # Initialize Gemini API client
         self.client = genai.Client(api_key=config.GEMINI_API_KEY)
+        
+        # Temporary debug logging to check API key (masked for security)
+        api_key = config.GEMINI_API_KEY
+        if api_key:
+            masked_key = api_key[:4] + '*' * (len(api_key) - 8) + api_key[-4:] if len(api_key) > 8 else "***"
+            logging.info(f"API key loaded: {masked_key}")
+        else:
+            logging.error("No API key found in configuration")
     
     def analyze_earnings_documents(self, documents, company_name, quarter, year):
         """
@@ -82,14 +90,7 @@ class EarningsAnalyzer:
             - Current cloud strategy and market position
             - Strategic direction changes or investments
             - Competitive positioning against Google Cloud
-            
-            ## Google and GCP Mentions
-            - For each Google or GCP mention, include:
-              * Document type (earnings release/call transcript)
-              * Exact location (page, section, speaker)
-              * Direct quote
-              * Strategic implications
-            
+
             ## Technology and AI Investments
             - Technology investments that might affect cloud adoption
             - AI/ML initiatives that could complement or compete with GCP offerings

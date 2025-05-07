@@ -37,7 +37,7 @@ class EmailService:
                 "enabled": False,
                 "recipients": [],
                 "credentials_path": config.GMAIL_CREDENTIALS_PATH,
-                "token_path": config.GMAIL_TOKEN_PATH
+                "token_path": "token.pickle"
             }
         
         # Process credential paths (handle environment variable references)
@@ -45,7 +45,7 @@ class EmailService:
             self.config.get("credentials_path", config.GMAIL_CREDENTIALS_PATH)
         )
         self.token_path = self._resolve_env_reference(
-            self.config.get("token_path", config.GMAIL_TOKEN_PATH)
+            self.config.get("token_path", "token.pickle")
         )
         
         # Get client ID and secret from environment variables

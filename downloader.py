@@ -156,8 +156,8 @@ class EarningsDocDownloader:
         }
         
         # Download earnings release PDF if available
-        if release_data.get('earnings_release_pdf'):
-            pdf_url = release_data['earnings_release_pdf']
+        if release_data.get('earnings_release'):
+            pdf_url = release_data['earnings_release']
             # Skip if the URL is just the IR site (requires manual navigation)
             if pdf_url != company_info['ir_site']:
                 pdf_path = self.download_file(
@@ -174,8 +174,8 @@ class EarningsDocDownloader:
                     }
         
         # Download call transcript PDF if available
-        if release_data.get('call_transcript_pdf'):
-            transcript_url = release_data['call_transcript_pdf']
+        if release_data.get('call_transcript'):
+            transcript_url = release_data['call_transcript']
             transcript_path = self.download_file(
                 transcript_url,
                 ticker,
@@ -202,4 +202,79 @@ class EarningsDocDownloader:
     
     def get_available_companies(self):
         """Returns a list of available company tickers from the configuration."""
-        return list(self.config_manager.get_all_companies().keys()) 
+        return list(self.config_manager.get_all_companies().keys())
+
+    def _download_release_documents(self, company_ticker, year, quarter, release_data):
+        """
+        Download earnings release and call transcript documents for a specific release.
+        
+        Args:
+            company_ticker (str): Company ticker symbol
+            year (str): Release year
+            quarter (str): Release quarter
+            release_data (dict): Release data containing URLs
+            
+        Returns:
+            dict: Download information including local paths and status
+        """
+        download_info = {
+            'company_ticker': company_ticker,
+            'year': year,
+            'quarter': quarter,
+            'download_success': False,
+            'files': {}
+        }
+        
+        download_dir = self._get_download_dir(company_ticker, year, quarter)
+        
+        # Download earnings release PDF if available
+        if release_data.get('earnings_release'):
+            pdf_url = release_data['earnings_release']
+            pdf_filename = f"{company_ticker}_{year}_{quarter}_earnings_release"
+            
+            # Handle different file extensions
+            extension = self._get_file_extension(pdf_url)
+            if extension:
+                pdf_filename += f".{extension}"
+            elif pdf_url.lower().endswith('.pdf'):
+                pdf_filename += ".pdf"
+            else:
+                pdf_filename += ".html"  # Default to HTML if no extension detected
+            
+            pdf_path = os.path.join(download_dir, pdf_filename)
+            
+            download_info['files']['earnings_release'] = {
+                'url': pdf_url,
+                'path': pdf_path,
+                'success': self._download_file(pdf_url, pdf_path)
+            }
+        
+        # Download call transcript PDF if available
+        if release_data.get('call_transcript'):
+            transcript_url = release_data['call_transcript']
+            transcript_filename = f"{company_ticker}_{year}_{quarter}_call_transcript"
+            
+            # Handle different file extensions
+            extension = self._get_file_extension(transcript_url)
+            if extension:
+                transcript_filename += f".{extension}"
+            elif transcript_url.lower().endswith('.pdf'):
+                transcript_filename += ".pdf"
+            else:
+                transcript_filename += ".html"  # Default to HTML if no extension detected
+                
+            transcript_path = os.path.join(download_dir, transcript_filename)
+            
+            download_info['files']['call_transcript'] = {
+                'url': transcript_url,
+                'path': transcript_path,
+                'success': self._download_file(transcript_url, transcript_path)
+            }
+        
+        # Mark overall success if at least one file was downloaded successfully
+        for file_type, file_info in download_info['files'].items():
+            if file_info['success']:
+                download_info['download_success'] = True
+                break
+        
+        return download_info 
