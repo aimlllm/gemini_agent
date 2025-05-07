@@ -30,49 +30,35 @@ A specialized system to analyze earnings call transcripts and financial reports 
   }
 }}%%
 graph TB
-    subgraph "External Configuration"
-        direction LR
-        CS[Company Sheet<br>Companies & URLs]
-        RS[Recipient Sheet<br>Email Distribution Lists]
-    end
-
-    subgraph "GCP Virtual Machine"
-        direction LR
+    %% Google Drive Spreadsheets
+    CS[Company Sheet<br>Companies & URLs]
+    RS[Recipient Sheet<br>Email Distribution Lists]
+    
+    %% GCP Virtual Machine components
+    subgraph VM["GCP Virtual Machine"]
         DL[Downloader Module]
         AN[Analyzer<br>Gemini API]
         ES[Email Service<br>Gmail API]
         DL --> AN --> ES
     end
-
-    subgraph "Storage Layer"
-        direction LR
-        GD[Google Drive<br>Document Storage]
-        AR[Analysis Results<br>Markdown Files]
+    
+    %% Google Drive container for spreadsheets only
+    subgraph GD["Google Drive"]
+        CS
+        RS
     end
-
-    subgraph "Scheduling"
-        direction LR
-        GCS[Google Cloud Scheduler]
-    end
-
+    
+    %% Connections
     CS --> DL
     RS --> ES
-    DL --> GD
-    GD --> AN
-    AN --> AR
-    GCS --> DL
-    AR --> ES
-
+    
+    %% Styling
     classDef default fill:#F8FAFC,stroke:#475569,stroke-width:2px
     classDef config fill:#E0E7FF,stroke:#4338CA,stroke-width:2px
     classDef compute fill:#DCFCE7,stroke:#166534,stroke-width:2px
-    classDef storage fill:#F3E8FF,stroke:#6B21A8,stroke-width:2px
-    classDef schedule fill:#FEF3C7,stroke:#92400E,stroke-width:2px
     
     class CS,RS config
     class DL,AN,ES compute
-    class GD,AR storage
-    class GCS schedule
 ```
 
 ### Data Flow
