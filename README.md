@@ -4,8 +4,9 @@ A specialized system to analyze earnings call transcripts and financial reports 
 
 ## Features
 
-- Downloads earnings documents from verified authoritative sources
-- Structured storage of earnings documents by company, year, and quarter
+- Downloads earnings documents from verified authoritative sources and stores them in Google Drive
+- Configurable company list and document URLs managed through Google Sheets
+- Email recipient management through Google Sheets for easy updates without code changes
 - Analyzes documents using Google Gemini 2.5 Pro with GCP-focused prompting
 - Extracts competitor intelligence and strategic implications for Google Cloud
 - Saves analysis in executive-friendly Markdown format
@@ -14,29 +15,147 @@ A specialized system to analyze earnings call transcripts and financial reports 
 
 ## System Architecture
 
+```mermaid
+%%{init: {
+  'theme': 'base',
+  'themeVariables': {
+    'primaryColor': '#4F46E5',
+    'primaryTextColor': '#000000',
+    'primaryBorderColor': '#4338CA',
+    'lineColor': '#6366F1',
+    'secondaryColor': '#E2E8F0',
+    'tertiaryColor': '#F1F5F9',
+    'textColor': '#000000',
+    'mainBkg': '#ffffff'
+  }
+}}%%
+graph TB
+    subgraph "External Configuration"
+        direction LR
+        CS[Company Sheet<br>Companies & URLs]
+        RS[Recipient Sheet<br>Email Distribution Lists]
+    end
+
+    subgraph "GCP Virtual Machine"
+        direction LR
+        DL[Downloader Module]
+        AN[Analyzer<br>Gemini API]
+        ES[Email Service<br>Gmail API]
+        DL --> AN --> ES
+    end
+
+    subgraph "Storage Layer"
+        direction LR
+        GD[Google Drive<br>Document Storage]
+        AR[Analysis Results<br>Markdown Files]
+    end
+
+    subgraph "Scheduling"
+        direction LR
+        GCS[Google Cloud Scheduler]
+    end
+
+    CS --> DL
+    RS --> ES
+    DL --> GD
+    GD --> AN
+    AN --> AR
+    GCS --> DL
+    AR --> ES
+
+    classDef default fill:#F8FAFC,stroke:#475569,stroke-width:2px
+    classDef config fill:#E0E7FF,stroke:#4338CA,stroke-width:2px
+    classDef compute fill:#DCFCE7,stroke:#166534,stroke-width:2px
+    classDef storage fill:#F3E8FF,stroke:#6B21A8,stroke-width:2px
+    classDef schedule fill:#FEF3C7,stroke:#92400E,stroke-width:2px
+    
+    class CS,RS config
+    class DL,AN,ES compute
+    class GD,AR storage
+    class GCS schedule
+```
+
+### Data Flow
+
+```mermaid
+%%{init: {
+  'theme': 'base',
+  'themeVariables': {
+    'primaryColor': '#818CF8',
+    'primaryTextColor': '#312E81',
+    'primaryBorderColor': '#4338CA',
+    'lineColor': '#6366F1',
+    'secondaryColor': '#E0E7FF',
+    'tertiaryColor': '#EEF2FF',
+    'noteTextColor': '#1E1B4B',
+    'noteBorderColor': '#4338CA',
+    'noteBkgColor': '#E0E7FF',
+    'activationBorderColor': '#4338CA',
+    'activationBkgColor': '#EEF2FF',
+    'sequenceNumberColor': '#312E81'
+  }
+}}%%
+sequenceDiagram
+    participant SCH as Google Cloud Scheduler
+    participant GS as Google Sheets
+    participant DL as Downloader Module
+    participant GD as Google Drive
+    participant AN as Analyzer (Gemini)
+    participant ES as Email Service
+    participant RC as Recipients
+
+    rect rgb(224, 231, 255)
+        Note over SCH,RC: Earnings Analysis Workflow
+
+        SCH->>DL: Trigger analysis run
+        DL->>GS: Read company configuration
+        Note over GS: Companies Sheet<br/>Tickers, URLs, Dates
+
+        GS-->>DL: Company data
+        DL->>GD: Download and store documents
+        Note over GD: Documents stored by<br/>company/year/quarter
+
+        GD-->>AN: Documents for analysis
+        AN->>GD: Store analysis results
+        Note over GD: Analysis saved as<br/>markdown files
+
+        ES->>GS: Read recipient configuration
+        Note over GS: Recipients Sheet<br/>Emails, Groups, Companies
+
+        GS-->>ES: Recipient lists
+        ES->>GD: Read analysis results
+        GD-->>ES: Markdown analysis files
+
+        ES->>RC: Send reports to recipients
+        Note over RC: Email delivered based on<br/>company and group filters
+    end
+```
+
 The system follows a modular architecture with the following components:
 
-### 1. Configuration System
-- `config/company_config.json`: Central JSON file storing all company information and document URLs
-- Environment settings via `.env` file
-- Support for environment variable references in JSON configs
+### 1. Configuration System (Google Sheets)
+- **Company Configuration Sheet**: Maintains the list of companies to track, their document URLs, and release schedules
+- **Recipient Configuration Sheet**: Manages email distribution lists, with support for targeting specific companies and recipient groups
+- All configuration is managed externally through Google Sheets, allowing non-technical users to update settings
 
 ### 2. Document Downloader
-- Downloads documents based on information from the configuration
-- Stores documents in a structured filesystem for analysis
+- Reads company configuration from Google Sheets
+- Downloads documents based on configured URLs
+- Stores documents directly in Google Drive (not local storage)
+- Can be triggered automatically by Google Cloud Scheduler
 
 ### 3. Document Analyzer
+- Retrieves documents from Google Drive
 - Analyzes documents using Google's Gemini API with GCP-focused prompting
 - Extracts insights relevant to Google Cloud Platform strategy
+- Stores analysis results back to Google Drive
 
-### 4. Report Generator
-- Formats analysis results into executive-friendly markdown
-- Creates reports that can be directly included in emails
-
-### 5. Email Service
-- Sends analysis reports via email using Gmail API
+### 4. Email Service
+- Reads recipient configuration from Google Sheets
+- Retrieves analysis results from Google Drive
+- Formats analysis for email delivery
+- Sends targeted emails based on company-specific distribution rules
 - Supports HTML and plain text formatting
-- OAuth authentication for secure access
 
 ## Setup
 
@@ -52,10 +171,9 @@ Edit the `.env` file with your Google Gemini API key and other settings:
 
 ```
 GEMINI_API_KEY=your-api-key-here
-LOCAL_STORAGE=true
-LOCAL_STORAGE_PATH=downloads
-COMPANY_CONFIG_PATH=config/company_config.json
-EMAIL_CONFIG_PATH=config/email_config.json
+GOOGLE_DRIVE_FOLDER_ID=your-drive-folder-id-here
+COMPANY_SHEET_ID=your-google-sheet-id-here
+RECIPIENT_SHEET_ID=your-recipient-sheet-id-here
 GMAIL_CREDENTIALS_PATH=/path/to/your/credentials.json
 ```
 
@@ -73,12 +191,13 @@ Follow these step-by-step instructions to set up Gmail API access for sending em
 7. Wait for the project to be created (you'll be notified when it's ready)
 8. Make sure your new project is selected in the dropdown at the top of the page
 
-#### Step 2: Enable the Gmail API
+#### Step 2: Enable the Required APIs
 1. In the left navigation menu, hover over "APIs & Services" and click "Library"
-2. In the search bar at the top, type "Gmail API"
-3. Click on "Gmail API" in the search results
-4. Click the blue "Enable" button
-5. Wait for the API to be enabled
+2. Search for and enable the following APIs:
+   - Gmail API
+   - Google Drive API
+   - Google Sheets API
+   - Cloud Scheduler API (if using automated scheduling)
 
 #### Step 3: Configure OAuth Consent Screen
 1. In the left navigation menu, click on "APIs & Services" > "OAuth consent screen"
@@ -90,8 +209,10 @@ Follow these step-by-step instructions to set up Gmail API access for sending em
    - Developer contact information: Your email address
 5. Click "Save and Continue"
 6. On the "Scopes" page, click "Add or Remove Scopes"
-7. Search for and select the scope: `https://mail.google.com/` 
-   (This gives full access to Gmail, which is needed for sending emails)
+7. Add the following scopes:
+   - https://mail.google.com/ (Gmail API - Full Access)
+   - https://www.googleapis.com/auth/drive (Google Drive API)
+   - https://www.googleapis.com/auth/spreadsheets (Google Sheets API)
 8. Click "Update"
 9. Click "Save and Continue"
 10. On the "Test users" section:
@@ -112,40 +233,161 @@ Follow these step-by-step instructions to set up Gmail API access for sending em
 8. Click "Download JSON" to download your credentials file
 9. Save this file to a secure location (you'll reference this in your `.env` file)
 
-#### Step 5: Configure Email Settings
-Create a `config/email_config.json` file with the following structure:
+### 4. Set Up Google Sheets for Configuration
 
-```json
-{
-  "enabled": true,
-  "recipients": ["recipient1@example.com", "recipient2@example.com"],
-  "cc": ["cc1@example.com", "cc2@example.com"],
-  "email_subject_prefix": "[GCP Impact] ",
-  "html_enabled": true,
-  "credentials_path": ".env:GMAIL_CREDENTIALS_PATH",
-  "token_path": "token.pickle",
-  "sender_email": "your.email@gmail.com"
-}
+#### Company Configuration Sheet
+1. Create a new Google Sheet
+2. Format it with these columns:
+   - Ticker: Company ticker symbol (e.g., AMZN, GOOGL)
+   - Name: Company name
+   - IR Site: Investor relations site URL
+   - Year: Release year (e.g., 2025, FY25)
+   - Quarter: Release quarter (e.g., Q1, Q2)
+   - Release Date: Date of earnings release
+   - Release Time: Time of earnings release
+   - Earnings URL: URL to earnings release document
+   - Transcript URL: URL to call transcript document
+   - Status: Status of analysis (e.g., Pending, Complete)
+3. Share the sheet with the service account email
+
+#### Recipient Configuration Sheet
+1. Create a new Google Sheet
+2. Format it with these columns:
+   - Email: Recipient email address
+   - Type: TO or CC
+   - Active: YES or NO (to enable/disable without deletion)
+   - Companies: Comma-separated list of tickers or "ALL"
+   - Groups: Comma-separated list of groups (e.g., EXEC, CLOUD, COMPETITOR)
+   - Notes: Documentation about the recipient
+3. Share the sheet with the service account email
+
+## Deployment on Google Cloud Platform
+
+### Prerequisites
+- Google Cloud Platform account with billing enabled
+- Project created with necessary APIs enabled (Gmail API, Google Drive API, Google Sheets API)
+- Google Sheets set up for company and recipient configuration
+- Google Drive folder created for document storage
+
+### Step 1: Create a Compute Engine VM Instance
+
+1. Navigate to the [Google Cloud Console](https://console.cloud.google.com/)
+2. Select your project
+3. Go to Compute Engine > VM Instances
+4. Click "Create Instance"
+5. Configure your VM:
+   - Name: `earnings-analysis-vm`
+   - Machine type: e2-medium (2 vCPU, 4 GB memory) or larger based on your needs
+   - Boot disk: Debian 11 or Ubuntu 20.04 LTS
+   - Allow HTTP/HTTPS traffic if needed for future web interface
+6. Click "Create"
+
+### Step 2: SSH into Your VM and Install Dependencies
+
+```bash
+# Install required packages
+sudo apt-get update
+sudo apt-get install -y python3-pip git python3-venv
+
+# Clone repository
+git clone https://github.com/yourusername/earnings-analysis.git
+cd earnings-analysis
+
+# Create virtual environment
+python3 -m venv venv
+source venv/bin/activate
+
+# Install dependencies
+pip install -r requirements.txt
 ```
 
-- `enabled`: Set to `true` to enable email sending, `false` to disable it
-- `recipients`: List of primary email recipients
-- `cc`: List of CC recipients (optional)
-- `email_subject_prefix`: Prefix to add to email subjects
-- `html_enabled`: Whether to send HTML-formatted emails
-- `credentials_path`: Path to the OAuth credentials JSON file (can reference an environment variable)
-- `token_path`: Path where the OAuth token will be stored
-- `sender_email`: Fallback sender email address if profile access fails
+### Step 3: Configure Environment
 
-#### Step 6: Update .env file with credentials path
-
-Add the following to your `.env` file:
-
-```
-GMAIL_CREDENTIALS_PATH=/path/to/your/credentials.json
+1. Create `.env` file:
+```bash
+nano .env
 ```
 
-Replace `/path/to/your/credentials.json` with the actual path to the credentials file you downloaded.
+2. Add configuration:
+```
+GEMINI_API_KEY=your-api-key-here
+GOOGLE_DRIVE_FOLDER_ID=your-drive-folder-id-here
+COMPANY_SHEET_ID=your-google-sheet-id-here
+RECIPIENT_SHEET_ID=your-recipient-sheet-id-here
+GMAIL_CREDENTIALS_PATH=/home/username/earnings-analysis/credentials.json
+```
+
+### Step 4: Upload Credentials
+
+1. Use `gcloud` to copy credentials.json to your VM:
+```bash
+gcloud compute scp credentials.json earnings-analysis-vm:~/earnings-analysis/
+```
+
+2. Or create it directly on the VM (copy contents from your local file)
+
+### Step 5: Setup Email Authentication
+
+When running on a VM without GUI, you need a slightly different OAuth flow:
+
+1. Install Google Cloud SDK on your local machine
+2. Run `gcloud auth login` to authenticate
+3. Generate OAuth tokens locally and then upload them to your VM
+4. Or use the `--no-browser` flag:
+```bash
+python send_email.py --reauth --no-browser
+```
+This will provide a URL to visit in your browser, where you'll complete authentication and get a verification code to enter in the terminal.
+
+### Step 6: Set Up Scheduled Runs with Cloud Scheduler
+
+1. Go to Google Cloud Console > Cloud Scheduler
+2. Click "Create Job"
+3. Configure the job:
+   - Name: `earnings-analysis-daily`
+   - Frequency: `0 8 * * *` (runs at 8 AM daily)
+   - Timezone: Your preferred timezone
+   - Target: HTTP
+   - URL: The URL to your VM instance or Cloud Function
+   - HTTP Method: POST
+   - Body: `{"action": "run_analysis"}`
+4. Click "Create"
+
+## Google Sheets Configuration Details
+
+### Company Configuration Sheet
+
+The company sheet should have the following structure:
+
+| Ticker | Name | IR Site | Year | Quarter | Release Date | Release Time | Earnings URL | Transcript URL | Status |
+|--------|------|---------|------|---------|--------------|--------------|--------------|----------------|--------|
+| AMZN | Amazon.com, Inc. | https://ir.amazon.com | 2025 | Q1 | 2025-05-01 | 16:00 ET | https://ir.amazon.com/earnings.pdf | https://ir.amazon.com/transcript.pdf | Pending |
+| MSFT | Microsoft Corporation | https://microsoft.com/investor | FY25 | Q3 | 2025-04-30 | 16:30 ET | https://microsoft.com/earnings.pdf | | Complete |
+| GOOGL | Alphabet Inc. | https://abc.xyz/investor | 2025 | Q1 | 2025-04-28 | 16:00 ET | https://abc.xyz/earnings.pdf | https://abc.xyz/transcript.pdf | Running |
+
+This structure allows for:
+- Managing all companies in a single central location
+- Tracking document URLs for automated download
+- Recording release dates and times for scheduling
+- Monitoring analysis status for each company's earnings
+
+### Email Recipient Sheet
+
+The recipient configuration will be managed through a sheet with the following structure:
+
+| Recipient Email       | Type   | Active | Companies     | Groups       | Notes                      |
+|-----------------------|--------|--------|---------------|--------------|----------------------------|
+| user1@example.com     | TO     | YES    | AMZN,MSFT,ALL | EXEC,CLOUD   | Primary cloud stakeholder  |
+| user2@example.com     | CC     | YES    | ALL           | EXEC         | VP needs all reports       |
+| team@example.com      | TO     | YES    | GOOGL,META    | COMPETITOR   | Competitor analysis team   |
+| user3@example.com     | TO     | NO     | AMZN,MSFT     | CLOUD        | Currently on vacation      |
+
+This structure allows for:
+- Flexible recipient management without code deployments
+- Targeted distribution based on company
+- Group-based permissions
+- Temporarily disabling recipients
+- Documentation of recipient purposes
 
 ## Usage
 
@@ -156,15 +398,17 @@ python main.py --ticker AMZN
 ```
 
 This will automatically:
-1. Download the latest earnings documents for Amazon
-2. Store them in a structured way in the local storage
-3. Analyze them using Gemini API with a focus on GCP strategic implications
-4. Save the results in executive-friendly Markdown format for email
-5. Send the analysis by email if email functionality is enabled
+1. Read company configuration from Google Sheets
+2. Download the latest earnings documents for Amazon
+3. Store them in Google Drive
+4. Analyze them using Gemini API with a focus on GCP strategic implications
+5. Save the results in executive-friendly Markdown format in Google Drive
+6. Read recipient configuration from Google Sheets
+7. Send the analysis by email to the appropriate recipients
 
 ### Using a Custom URL
 
-If you want to analyze a specific earnings document that's not in our configuration:
+If you want to analyze a specific earnings document that's not in the Google Sheet:
 
 ```bash
 python main.py --custom-url "https://example.com/earnings.pdf" --file-type earnings_release
@@ -203,14 +447,14 @@ python send_email.py --test-credentials
 ### Command-Line Options
 
 - `--ticker`: Company ticker symbol to analyze (e.g., AMZN, GOOGL, META)
-- `--list-companies`: List all available companies and their latest quarters
-- `--custom-url`: Analyze a custom URL not in the configuration
+- `--list-companies`: List all available companies from Google Sheets
+- `--custom-url`: Analyze a custom URL not in the Google Sheet
 - `--file-type`: Type of file for custom URL (transcript or earnings_release)
-- `--output-dir`: Directory to save analysis results (defaults to 'results')
+- `--update-sheet`: Update the Google Sheet with latest document URLs
 
 ## Available Companies
 
-The system includes configuration for the following companies:
+The system includes configuration in Google Sheets for the following companies:
 
 | Ticker | Company Name                         |
 |--------|-------------------------------------|
@@ -290,81 +534,18 @@ Sample executive-friendly output structure:
 *This is an AI-generated analysis for Google Cloud executive team consumption only. Verify all information before making strategic decisions.*
 ```
 
-## JSON Configuration Structure
-
-The `config/company_config.json` file uses the following structure:
-
-```json
-{
-  "companies": {
-    "ticker": {
-      "name": "Company Name",
-      "ticker": "TICKER",
-      "ir_site": "https://investor.company.com/",
-      "releases": {
-        "2025": {
-          "Q1": {
-            "date": "May 1, 2025",
-            "time": "after-market close",
-            "earnings_release": "https://investor.company.com/earnings.pdf",
-            "call_transcript": "https://investor.company.com/transcript.pdf"
-          },
-          "Q2": {
-            "expected_date": "August 1, 2025",
-            "expected_time": "after-market close",
-            "earnings_release": null,
-            "call_transcript": null
-          }
-        }
-      }
-    }
-  },
-  "meta": {
-    "last_updated": "2023-05-10T12:00:00Z",
-    "version": "1.0.0"
-  }
-}
-```
-
-## Directory Structure
-
-```
-├── .env                  # Environment variables
-├── requirements.txt      # Python dependencies
-├── main.py               # Main script
-├── config/               # Configuration files
-│   ├── company_config.json  # Company information and document URLs
-│   └── email_config.json    # Email configuration
-├── config.py             # Configuration utilities
-├── downloader.py         # Document downloader
-├── analyzer.py           # Document analyzer using Gemini API
-├── email_service.py      # Email service using Gmail API
-├── send_email.py         # Utility to send emails for existing reports
-├── token.pickle          # OAuth token storage (created on first email send)
-├── downloads/            # Downloaded documents (created on first run)
-│   ├── amzn/             # Documents for Amazon
-│   │   └── 2025_Q1/      # Organized by quarter and year
-│   ├── msft/             # Documents for Microsoft
-│   └── ...               # Other companies
-└── results/              # Analysis results (created on first run)
-    └── amzn_2025_Q1_combined_gcp_impact.md  # GCP-focused markdown for email
-```
-
 ## Troubleshooting
 
-### Document Download Issues
+### Google Sheets and Drive Integration Issues
 
-Some companies restrict automated access to their earnings documents. If you encounter issues downloading documents, the system will provide instructions to manually download the documents from the company's investor relations site.
+#### "Insufficient Permission" Errors
+- Ensure the service account has correct access to the Google Sheets
+- Check that the Drive folder has been shared with the service account
+- Verify that the correct scopes were requested during OAuth flow
 
-Common reasons for download failures:
-1. Documents require login credentials or are behind a paywall
-2. URLs have changed since the configuration was last updated
-3. The company website has strict security measures against automated downloads
-
-In these cases, you can:
-1. Manually download the document from the company's IR site
-2. Save it to the appropriate folder in the `downloads` directory
-3. Use the custom URL option to analyze the local file
+#### "Sheet Not Found" Errors
+- Confirm the Sheet ID in your configuration is correct
+- Check that the sheet exists and hasn't been renamed or moved
 
 ### Email Authentication Issues
 
@@ -396,10 +577,26 @@ If you encounter errors during the authentication process:
 
 Check that:
 1. Your internet connection is working
-2. The email configuration in `config/email_config.json` is correct
+2. The email configuration in Google Sheets is correct
 3. The Gmail API is enabled in your Google Cloud project
 4. You have granted the necessary permissions during the OAuth flow
 5. Your OAuth token hasn't expired (use `--force-reauth` if needed)
+
+### GCP-Specific Issues
+
+#### VM Authentication Issues
+If you encounter authentication issues when running on a GCP VM:
+
+1. Make sure the VM has the correct service account attached
+2. Verify that the service account has the necessary permissions
+3. For headless OAuth flows, use the `--no-browser` flag and follow the URL instructions
+
+#### Resources Exhausted
+If your VM runs out of resources:
+
+1. Check your VM's CPU and memory usage with `top` or `htop`
+2. Consider upgrading to a larger machine type
+3. For memory issues with Gemini API, try processing documents in smaller chunks
 
 ## Future Enhancements
 
@@ -408,12 +605,133 @@ Check that:
 - Sentiment analysis on GCP references
 - Auto-generated executive summaries of multiple earnings
 - Dashboard integration for visualizing earnings insights
-- API interface to allow other services to request analyses
+- API interface to allow other services to request analyses 
 
-## Security Considerations
+## No-Code Deployment Guide for Google Cloud
 
-1. The OAuth credentials file contains sensitive information. Keep it secure and do not commit it to version control.
-2. The token file contains your OAuth refresh token. Keep it secure.
-3. Add both credential files to your `.gitignore` to avoid committing them to version control.
-4. The Gmail API will only have the permissions you explicitly grant during the OAuth process.
-5. Keep your `.env` file secure as it contains sensitive API keys and configuration paths. 
+This section provides a step-by-step deployment guide for users with no coding experience who want to run the Earnings Analysis System on Google Cloud.
+
+### Prerequisites
+
+- Google Cloud Platform account with billing enabled
+- Gmail account for sending emails
+- Basic understanding of Google Cloud Console navigation
+
+### Step 1: Deploy Using Cloud Marketplace (Recommended)
+
+The easiest way to deploy this service is through the Google Cloud Marketplace:
+
+1. Log in to the [Google Cloud Console](https://console.cloud.google.com/)
+2. Go to "Marketplace" in the left navigation menu
+3. Search for "Earnings Analysis System" 
+4. Click on the listing and then click "Launch"
+5. Follow the on-screen instructions for configuration
+6. The deployment will automatically create all necessary resources
+
+### Step 2: Configure Google Sheets
+
+After deployment, you'll need to set up your configuration sheets:
+
+1. Open the welcome email sent to your account
+2. Click on the template links for "Company Configuration" and "Recipient Configuration"
+3. Make a copy of these templates to your own Google Drive
+4. Share both sheets with the service account email address provided in the welcome email
+5. Note the Google Sheet IDs (the long string of characters in the URL) for the next step
+
+### Step 3: Configure the Application
+
+1. Return to Google Cloud Console
+2. Go to "Compute Engine" > "VM Instances"
+3. Find the instance named "earnings-analysis-vm"
+4. Click the "SSH" button next to the instance to open a browser-based terminal
+5. A setup wizard will automatically start. If not, type `./setup_wizard.sh` and press Enter
+6. Follow the prompts to enter:
+   - Your Gemini API key (available from [Google AI Studio](https://makersuite.google.com/app/apikey))
+   - Your Google Sheets IDs (from Step 2)
+   - Your Google Drive folder ID (from the welcome email)
+7. The wizard will verify your configuration and restart the service
+
+### Step 4: Test the System
+
+1. From the SSH terminal, type:
+   ```
+   ./run_test.sh
+   ```
+2. This will perform a test run on an example company
+3. You'll be prompted to authenticate with your Gmail account
+4. Follow the on-screen instructions to complete authentication
+5. Verify that a test email is received
+
+### Step 5: Set Up Scheduled Runs Without Coding
+
+1. Go to Google Cloud Console
+2. Navigate to "Cloud Scheduler" in the left menu
+3. Click "Create Job" 
+4. Fill in the form using these settings:
+   - Name: `earnings-analysis-daily`
+   - Region: Select the same region as your VM
+   - Frequency: `0 8 * * *` (runs at 8 AM daily)
+   - Timezone: Your preferred timezone
+   - Target type: HTTP
+   - URL: (Pre-filled from your deployment)
+   - HTTP Method: POST
+   - Body: `{"action": "run_analysis"}`
+   - Auth header: (Pre-filled from your deployment)
+5. Click "Create"
+
+### Step 6: Manage Your System
+
+#### Using the Web Admin Panel
+
+1. Go to Google Cloud Console > Compute Engine > VM Instances
+2. Find the "External IP" address for your earnings-analysis-vm
+3. Open a new browser tab and enter: `http://[YOUR-EXTERNAL-IP]:8080`
+4. Log in using the credentials from your welcome email
+5. From the admin panel, you can:
+   - Run analysis for specific companies
+   - View past analysis reports
+   - Download reports as PDF or Markdown
+   - Update configuration settings
+   - View system logs and status
+
+#### Managing Email Recipients
+
+1. Open your Recipient Configuration Google Sheet
+2. Add, modify, or remove recipients as needed
+3. Changes take effect immediately - no restart required
+
+#### Adding New Companies to Track
+
+1. Open your Company Configuration Google Sheet
+2. Add new rows with company information
+3. New companies will be included in the next scheduled run
+
+### Step 7: Troubleshooting With No Coding Required
+
+#### Analysis Not Running
+
+1. Go to the web admin panel (Step 6)
+2. Click "System Status" tab
+3. Check for any error messages
+4. Click "Run Diagnostics" for automated troubleshooting
+5. If issues persist, use the "Contact Support" button
+
+#### Email Delivery Issues
+
+1. In the web admin panel, go to "Email Settings"
+2. Click "Test Email Configuration"
+3. If the test fails, click "Re-authenticate Email"
+4. Follow the on-screen instructions to re-authenticate your Gmail account
+
+#### Viewing Logs Without Terminal Access
+
+1. In Google Cloud Console, go to "Logging" > "Logs Explorer"
+2. In the query box, enter: `resource.type="gce_instance" AND resource.labels.instance_id="earnings-analysis-vm"`
+3. Click "Run Query"
+4. The logs will show you what's happening with your system
+
+### Cost Management
+
+1. Go to Google Cloud Console > "Billing" > "Cost Management"
+2. Set up a budget alert to monitor your costs
+3. The typical cost for running this service is approximately $25-50/month, depending on usage 
