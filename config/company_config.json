@@ -1,0 +1,218 @@
+{
+  "companies": {
+    "amzn": {
+      "name": "Amazon.com, Inc.",
+      "ticker": "AMZN",
+      "ir_site": "https://www.aboutamazon.com/news/company-news",
+      "releases": {
+        "2025": {
+          "Q1": {
+            "date": "May 2, 2025",
+            "time": "after-market close",
+            "earnings_release_pdf": "https://ir.aboutamazon.com/files/doc_financials/2025/q1/AMZN-Q1-2025-Earnings-Release.pdf",
+            "call_transcript_pdf": null
+          },
+          "Q2": {
+            "expected_date": "Around July 25, 2025",
+            "expected_time": "after-market close",
+            "earnings_release_pdf": null,
+            "call_transcript_pdf": null
+          }
+        }
+      }
+    },
+    "msft": {
+      "name": "Microsoft Corporation",
+      "ticker": "MSFT",
+      "ir_site": "https://www.microsoft.com/en-us/investor/earnings/fy-2025-q3/press-release-webcast",
+      "releases": {
+        "FY25": {
+          "Q3": {
+            "date": "April 30, 2025",
+            "time": "2:30 p.m. PT",
+            "earnings_release_pdf": "https://static.poder360.com.br/2025/04/Microsoft-1otrimestre.pdf",
+            "call_transcript_pdf": null
+          },
+          "Q4": {
+            "expected_date": "Tentatively July 2025",
+            "expected_time": null,
+            "earnings_release_pdf": null,
+            "call_transcript_pdf": null
+          }
+        }
+      }
+    },
+    "meta": {
+      "name": "Meta Platforms, Inc.",
+      "ticker": "META",
+      "ir_site": "https://investor.fb.com",
+      "releases": {
+        "2025": {
+          "Q1": {
+            "date": "April 30, 2025",
+            "time": "after-market close",
+            "earnings_release_pdf": "https://s21.q4cdn.com/399680738/files/doc_financials/2025/q1/Meta-03-31-2025-Exhibit-99-1-Final.pdf",
+            "call_transcript_pdf": "https://s21.q4cdn.com/399680738/files/doc_financials/2025/q1/Transcripts/META-Q1-2025-Earnings-Call-Transcript-1.pdf"
+          },
+          "Q2": {
+            "expected_date": "July 24, 2025",
+            "expected_time": "after-market close",
+            "earnings_release_pdf": null,
+            "call_transcript_pdf": null
+          }
+        }
+      }
+    },
+    "amd": {
+      "name": "Advanced Micro Devices, Inc.",
+      "ticker": "AMD",
+      "ir_site": "https://ir.amd.com/",
+      "releases": {
+        "2025": {
+          "Q1": {
+            "date": "May 6, 2025",
+            "time": "1:30 p.m. PT",
+            "earnings_release_pdf": "https://d1io3yog0oux5.cloudfront.net/_c8499822669cc7bb919d7751cfb9f77c/amd/news/2025-05-06_AMD_Reports_First_Quarter_2025_Financial_1247.pdf",
+            "call_transcript_pdf": null
+          },
+          "Q2": {
+            "expected_date": "July 29, 2025",
+            "expected_time": "1:30 p.m. PT",
+            "earnings_release_pdf": null,
+            "call_transcript_pdf": null
+          }
+        }
+      }
+    },
+    "ibm": {
+      "name": "International Business Machines Corp.",
+      "ticker": "IBM",
+      "ir_site": "https://www.ibm.com/investor/financial-reporting",
+      "releases": {
+        "2025": {
+          "Q1": {
+            "date": "April 23, 2025",
+            "time": "5:00 p.m. ET",
+            "earnings_release_pdf": "https://www.ibm.com/investor/financial-reporting",
+            "call_transcript_pdf": null
+          },
+          "Q2": {
+            "expected_date": "July 23, 2025",
+            "expected_time": "5:00 p.m. ET",
+            "earnings_release_pdf": null,
+            "call_transcript_pdf": null
+          }
+        }
+      }
+    },
+    "orcl": {
+      "name": "Oracle Corporation",
+      "ticker": "ORCL",
+      "ir_site": "https://www.oracle.com/corporate/",
+      "releases": {
+        "FY25": {
+          "Q3": {
+            "date": "March 10, 2025",
+            "time": "after-market close",
+            "earnings_release_pdf": "https://s23.q4cdn.com/440135859/files/doc_financials/2025/q3/3q25-pressrelease-March-final.pdf",
+            "call_transcript_pdf": null
+          },
+          "Q4": {
+            "expected_date": "June 10, 2025",
+            "expected_time": "after-market close",
+            "earnings_release_pdf": null,
+            "call_transcript_pdf": null
+          }
+        }
+      }
+    },
+    "baba": {
+      "name": "Alibaba Group",
+      "ticker": "BABA",
+      "ir_site": "https://www.alibabagroup.com/en/ir/home",
+      "releases": {
+        "2025": {
+          "March Quarter": {
+            "date": "May 15, 2025",
+            "time": "after-market close",
+            "earnings_release_pdf": null,
+            "call_transcript_pdf": null
+          },
+          "June Quarter": {
+            "expected_date": "Aug 14, 2025",
+            "expected_time": "after-market close",
+            "earnings_release_pdf": null,
+            "call_transcript_pdf": null
+          }
+        }
+      }
+    },
+    "crm": {
+      "name": "Salesforce.com, Inc.",
+      "ticker": "CRM",
+      "ir_site": "https://www.salesforce.com",
+      "releases": {
+        "FY25": {
+          "Q1": {
+            "date": "February 26, 2025",
+            "time": "after-market close",
+            "earnings_release_pdf": "https://investor.salesforce.com/files/doc_financials/2025/q1/CRM-Q1-FY25-Earnings-Press-Release-w-financials.pdf",
+            "call_transcript_pdf": null
+          },
+          "Q2": {
+            "expected_date": "May 29, 2025",
+            "expected_time": "after-market close",
+            "earnings_release_pdf": null,
+            "call_transcript_pdf": null
+          }
+        }
+      }
+    },
+    "sap": {
+      "name": "SAP SE",
+      "ticker": "SAP",
+      "ir_site": "https://www.sap.com",
+      "releases": {
+        "2025": {
+          "Q1": {
+            "date": "April 22, 2025",
+            "time": "5:00 p.m. ET",
+            "earnings_release_pdf": null,
+            "call_transcript_pdf": null
+          },
+          "Q2": {
+            "expected_date": "July 22, 2025",
+            "expected_time": "5:00 p.m. ET",
+            "earnings_release_pdf": null,
+            "call_transcript_pdf": null
+          }
+        }
+      }
+    },
+    "googl": {
+      "name": "Alphabet Inc. (Google)",
+      "ticker": "GOOGL",
+      "ir_site": "https://abc.xyz/investor/",
+      "releases": {
+        "2025": {
+          "Q1": {
+            "date": "April 2025",
+            "time": "after-market close",
+            "earnings_release_pdf": "https://abc.xyz/investor/",
+            "call_transcript_pdf": null
+          },
+          "Q2": {
+            "expected_date": "July 2025",
+            "expected_time": "after-market close",
+            "earnings_release_pdf": null,
+            "call_transcript_pdf": null
+          }
+        }
+      }
+    }
+  },
+  "meta": {
+    "last_updated": "2023-05-10T12:00:00Z",
+    "version": "1.0.0"
+  }
+} 
