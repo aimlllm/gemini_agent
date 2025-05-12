@@ -31,64 +31,49 @@ def list_available_companies(config_manager):
         else:
             print(f"{ticker.upper():<8} {info['name']:<35} {'N/A':<15} {'N/A'}")
 
-def generate_email_markdown(analysis, config_manager):
+def generate_email_markdown(result, config_manager=None):
     """
-    Generate formatted markdown content for an email body from analysis results.
+    Generate email-friendly markdown from analysis results.
     
     Args:
-        analysis (dict): Analysis results dict
-        config_manager (ConfigManager): Configuration manager for company info
+        result (dict): Analysis result
+        config_manager (ConfigManager, optional): ConfigManager instance
         
     Returns:
-        str: Formatted markdown for email
+        str: Email-friendly markdown
     """
-    company = analysis.get('company', 'Unknown Company')
-    period = analysis.get('period', 'Unknown Period')
-    ticker = analysis.get('ticker', '').upper()
+    if 'error' in result:
+        return f"# ERROR: {result['error']}\n\nFailed to analyze {result['company']} earnings."
     
-    # Create a header with company info
-    header = f"# GCP Impact Analysis: {company} ({ticker}) - {period}\n\n"
+    # Get company info
+    company = result['company']
+    ticker = result['ticker']
+    quarter = result['quarter'] if 'quarter' in result else 'Unknown Period'
+    year = result['year'] if 'year' in result else ''
+    period = f"{quarter} {year}".strip()
     
-    # Add an executive summary box
-    executive_summary = f"""
-> **EXECUTIVE SUMMARY**  
-> This analysis examines {company}'s {period} financial results with focus on implications for Google Cloud Platform's strategy and competitive position.
-> Review the Strategic Implications section for recommended actions.
-"""
+    # Format the output
+    email_md = f"# GCP Impact Analysis: {company} ({ticker}) - {period}\n\n\n"
+    email_md += f"> **EXECUTIVE SUMMARY**  \n"
+    email_md += f"> This analysis examines {company}'s {period} financial results with focus on implications for Google Cloud Platform's strategy and competitive position.\n"
+    email_md += f"> Review the Strategic Implications section for recommended actions.\n"
     
-    # Source document information - handle multiple document types
-    source_info = ""
-    if 'document_urls' in analysis:
-        source_info = "**Source Documents:**  \n"
-        for doc_type, url in analysis['document_urls'].items():
-            display_type = doc_type.replace('_', ' ').title()
-            source_info += f"- [{display_type}]({url})  \n"
-    elif 'document_url' in analysis:
-        document_type = analysis.get('document_type', 'earnings document').replace('_', ' ').title()
-        source_info = f"**Source:** [{document_type}]({analysis['document_url']})  \n"
+    # Add release date if available
+    if 'release_date' in result:
+        email_md += f"**Earnings Date:** {result['release_date']}  \n\n"
     
-    # Get the earnings date from company config
-    earnings_date = "Unknown"
-    company_info = config_manager.get_company(ticker)
-    if company_info:
-        year, quarter, release_data = config_manager.get_latest_release(ticker)
-        if release_data and "date" in release_data:
-            earnings_date = release_data["date"]
+    # Add the content
+    if 'content' in result and result['content'] and not result['content'].startswith('Error:'):
+        email_md += result['content']
+    else:
+        email_md += "No analysis available.\n"
     
-    date_info = f"**Earnings Date:** {earnings_date}  \n\n"
+    # Add footer
+    current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    email_md += f"\n\n---\n*Analysis generated on {current_time} using Gemini 2.5 Pro*  \n"
+    email_md += "*This is an AI-generated analysis for Google Cloud executive team consumption only. Verify all information before making strategic decisions.*"
     
-    # The actual analysis content
-    analysis_content = analysis.get('analysis', 'No analysis available.')
-    
-    # Add a footer with generation timestamp and disclaimer
-    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    footer = f"\n\n---\n*Analysis generated on {timestamp} using Gemini 2.5 Pro*  \n"
-    footer += "*This is an AI-generated analysis for Google Cloud executive team consumption only. Verify all information before making strategic decisions.*"
-    
-    # Combine all parts
-    email_content = header + executive_summary + source_info + date_info + analysis_content + footer
-    
-    return email_content
+    return email_md
 
 def main():
     parser = argparse.ArgumentParser(description='Analyze earnings documents for tech companies')
@@ -167,13 +152,19 @@ def main():
             logging.info(f"Please check the investor relations site: {company_info['ir_site']}")
             return
         
-        # Use the combined document analyzer if we have multiple documents
-        logging.info(f"Creating combined analysis from all available documents...")
+        # Provide info about which documents we have
+        available_docs = list(download_result['files'].keys())
+        logging.info(f"Available documents for analysis: {', '.join(available_docs)}")
+        
+        # Add warning if transcript is missing (common with SeekingAlpha)
+        if 'call_transcript' not in available_docs:
+            logging.warning("Call transcript is not available. Analysis will be based only on earnings release.")
+            if 'call_transcript' in release_data and 'seekingalpha.com' in release_data['call_transcript']:
+                logging.warning("SeekingAlpha transcripts require a subscription. Consider finding an alternative source.")
+        
+        # Analyze documents
         analysis = analyzer.analyze_earnings_documents(
-            download_result['files'],
-            company_info['name'],
-            download_result['quarter'],
-            download_result['year']
+            download_result['files'], company_info['name'], download_result['quarter'], download_result['year']
         )
         
         # Format the result
@@ -183,7 +174,8 @@ def main():
             'company': company_info['name'],
             'quarter': download_result['quarter'],
             'year': download_result['year'],
-            'documents': download_result['files']
+            'documents': download_result['files'],
+            'release_date': release_data.get('date', 'Unknown')
         }
         
         # Save the analysis

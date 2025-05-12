@@ -1,5 +1,4 @@
-from google import genai
-from google.genai import types
+from google import generativeai as genai
 import config
 import os
 import logging
@@ -10,7 +9,7 @@ import binascii
 class EarningsAnalyzer:
     def __init__(self):
         # Initialize Gemini API client
-        self.client = genai.Client(api_key=config.GEMINI_API_KEY)
+        genai.configure(api_key=config.GEMINI_API_KEY)
         
         # Load prompt template
         self.prompt_template = self._load_prompt_template()
@@ -118,42 +117,44 @@ class EarningsAnalyzer:
             logging.error("No documents provided for analysis")
             return "Error: No documents provided for analysis."
         
+        # Check available documents
+        available_types = list(documents.keys())
+        logging.info(f"Available documents: {', '.join(available_types)}")
+        
+        if 'call_transcript' not in available_types:
+            logging.warning("Call transcript is not available. Analysis will be based only on earnings release.")
+        elif 'earnings_release' not in available_types:
+            logging.warning("Earnings release is not available. Analysis will be based only on call transcript.")
+        
         # Prepare the prompt
         prompt = self._prepare_prompt(documents, company_name, quarter, year)
         
         logging.info(f"Sending prompt to Gemini (length: {len(prompt)} chars)")
         
         try:
-            # Call Gemini API with version-specific handling
-            try:
-                # Try newer API version
-                model = self.client.get_generative_model("gemini-2.5-pro-preview-05-06")
-                response = model.generate_content(prompt)
-            except AttributeError:
-                # Fall back to older API version
-                logging.info("Falling back to older Gemini API format")
-                generation_config = {
+            # Use a simple and reliable approach to call Gemini API with version 0.7.2
+            model = genai.GenerativeModel(
+                model_name="gemini-2.5-pro-preview-05-06",
+                generation_config={
                     "temperature": 0.2,
+                    "top_p": 0.95,
+                    "top_k": 64,
                     "max_output_tokens": 4096,
                 }
-                
-                response = self.client.generate_content(
-                    model="gemini-2.5-pro-preview-05-06",
-                    contents=prompt,
-                    generation_config=generation_config
-                )
+            )
+            
+            # Make the API call
+            response = model.generate_content(prompt)
             
             # Extract text from response
             if hasattr(response, 'text'):
                 analysis = response.text
-            elif hasattr(response, 'candidates') and response.candidates:
-                analysis = response.candidates[0].content.parts[0].text
+                logging.info(f"Received analysis from Gemini (length: {len(analysis)} chars)")
+                return analysis
             else:
                 logging.error("Unexpected response format from Gemini API")
                 return "Error: Unexpected response format from Gemini API."
             
-            logging.info(f"Received analysis from Gemini (length: {len(analysis)} chars)")
-            return analysis
         except Exception as e:
             logging.error(f"Error calling Gemini API: {e}")
             return f"Error: Failed to analyze documents: {e}" 

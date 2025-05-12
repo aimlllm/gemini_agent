@@ -39,184 +39,152 @@ class EarningsDocDownloader:
                 return False
         return True
     
-    def download_file(self, url, company, quarter, year, file_type):
+    def download_file(self, url, ticker, year, quarter, doc_type):
         """
-        Download a file from a URL and save it locally.
+        Download a file from a URL and save it to the appropriate location.
         
         Args:
-            url (str): URL of the file to download
-            company (str): Company name or ticker
-            quarter (str): Quarter (Q1, Q2, Q3, Q4)
-            year (str): Year
-            file_type (str): Type of file (transcript, press_release, etc.)
+            url (str): URL to download
+            ticker (str): Company ticker symbol
+            year (str): Year of earnings release
+            quarter (str): Quarter of earnings release
+            doc_type (str): Type of document (earnings_release, call_transcript)
             
         Returns:
-            str: Path to the downloaded file
+            str: Path to downloaded file, or None if download failed
         """
+        # Clean ticker for directory name
+        ticker = ticker.lower()
+        
+        # Create directory structure
+        dir_path = os.path.join(self.storage_path, ticker, f"{year}_{quarter}")
         try:
-            # Create a directory structure like downloads/amazon/2023_Q1/
-            company_dir = os.path.join(self.storage_path, company.lower())
-            period_dir = os.path.join(company_dir, f"{year}_{quarter}")
+            os.makedirs(dir_path, exist_ok=True)
+        except (OSError, PermissionError) as e:
+            logging.error(f"Could not create directory {dir_path}: {e}")
+            return None
+        
+        # Extract filename from URL or generate one
+        parsed_url = urlparse(url)
+        filename = os.path.basename(parsed_url.path)
+        
+        # If filename is empty or doesn't have an extension, create a default one
+        if not filename or '.' not in filename:
+            extension = 'pdf' if 'pdf' in parsed_url.path.lower() else 'html'
+            doc_type_name = 'Earnings-Release' if doc_type == 'earnings_release' else 'Earnings-Call-Transcript'
+            filename = f"{ticker.upper()}-{quarter}-{year}-{doc_type_name}.{extension}"
+        
+        # Full path to save the file
+        file_path = os.path.join(dir_path, filename)
+        
+        # If file already exists, skip download
+        if os.path.exists(file_path):
+            logging.info(f"File already exists at {file_path}")
+            return file_path
+        
+        # Download the file
+        try:
+            headers = {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.3'
+            }
             
-            # Create directories safely
-            if not self._create_directory_safely(company_dir) or not self._create_directory_safely(period_dir):
-                logging.error(f"Could not create required directories for {url}")
+            # Check if URL is accessible before downloading
+            response = requests.head(url, headers=headers, timeout=10)
+            
+            if response.status_code == 403:
+                # Handle forbidden access (common with SeekingAlpha)
+                if 'seekingalpha.com' in url:
+                    logging.warning(f"Access forbidden (403) for SeekingAlpha URL: {url}")
+                    logging.warning("SeekingAlpha likely requires subscription. Skipping this document.")
+                else:
+                    logging.warning(f"Access forbidden (403) for URL: {url}")
+                return None
+                
+            if response.status_code != 200:
+                logging.error(f"URL returned status code {response.status_code}: {url}")
                 return None
             
-            # Get the filename from the URL or create one
-            parsed_url = urlparse(url)
-            if os.path.basename(parsed_url.path):
-                filename = os.path.basename(parsed_url.path)
-            else:
-                # Create a filename if none is in the URL
-                filename = f"{company.lower()}_{year}_{quarter}_{file_type}"
-                
-                # Add extension based on content-type
-                try:
-                    # Try with headers first
-                    response = requests.head(url, headers=self.headers, timeout=10)
-                    response.raise_for_status()
-                except (requests.exceptions.RequestException, requests.exceptions.HTTPError):
-                    # If head request fails, try a normal GET request just to check content type
-                    response = requests.get(url, headers=self.headers, timeout=10, stream=True)
-                    response.close()  # Close connection without downloading the whole file
-                
-                content_type = response.headers.get('Content-Type', '')
-                if 'pdf' in content_type:
-                    filename += '.pdf'
-                elif 'html' in content_type:
-                    filename += '.html'
-                else:
-                    filename += '.txt'
+            # Proceed with download
+            response = requests.get(url, headers=headers, timeout=30)
+            response.raise_for_status()
             
-            # Path to save the file
-            file_path = os.path.join(period_dir, filename)
+            with open(file_path, 'wb') as f:
+                f.write(response.content)
             
-            # Download the file if it doesn't exist
-            if not os.path.exists(file_path):
-                logging.info(f"Downloading {url} to {file_path}")
-                
-                # Try with headers first to avoid 403 errors
-                session = requests.Session()
-                session.headers.update(self.headers)
-                
-                try:
-                    # Allow redirects and use a session for potential cookies
-                    response = session.get(url, timeout=30, allow_redirects=True)
-                    
-                    # If we get a 403 even with headers, provide clear feedback
-                    if response.status_code == 403:
-                        logging.warning(f"Access forbidden (403) for {url}.")
-                        logging.warning("This document requires login credentials or is behind a paywall.")
-                        logging.warning("Consider manually downloading the document from the IR site.")
-                        return None
-                    
-                    response.raise_for_status()
-                    
-                    with open(file_path, 'wb') as f:
-                        f.write(response.content)
-                    logging.info(f"Successfully downloaded {url}")
-                
-                except requests.exceptions.HTTPError as e:
-                    logging.error(f"HTTP Error: {e}")
-                    if response.status_code == 404:
-                        logging.error(f"The document was not found at {url}")
-                    elif response.status_code == 403:
-                        logging.error(f"Access denied to {url} - document likely requires authentication")
-                    return None
-                except requests.exceptions.ConnectionError:
-                    logging.error(f"Connection Error: Could not connect to {url}")
-                    return None
-                except requests.exceptions.Timeout:
-                    logging.error(f"Timeout Error: Request to {url} timed out")
-                    return None
-                except requests.exceptions.RequestException as e:
-                    logging.error(f"Request Error: {e}")
-                    return None
-            else:
-                logging.info(f"File already exists at {file_path}")
-            
+            logging.info(f"Downloaded {url} to {file_path}")
             return file_path
             
+        except requests.exceptions.HTTPError as e:
+            if '403' in str(e):
+                if 'seekingalpha.com' in url:
+                    logging.warning(f"Access forbidden (403) for SeekingAlpha URL: {url}")
+                    logging.warning("SeekingAlpha requires subscription. Skipping this document.")
+                else:
+                    logging.warning(f"Access forbidden (403) for URL: {url}")
+            else:
+                logging.error(f"HTTP error downloading {url}: {e}")
+            return None
         except Exception as e:
-            logging.error(f"Error downloading {url}: {str(e)}")
+            logging.error(f"Error downloading {url}: {e}")
             return None
     
     def download_latest_earnings(self, ticker):
         """
-        Download the latest earnings documents for a specific company based on the configuration.
+        Download the latest earnings documents for a company.
         
         Args:
-            ticker (str): Company ticker symbol (lowercase, e.g., 'amzn')
+            ticker (str): Company ticker symbol
             
         Returns:
-            dict: Paths to downloaded documents
+            dict: Dictionary with downloaded file information
+                 {
+                     'quarter': quarter,
+                     'year': year,
+                     'files': {
+                         'earnings_release': {'path': file_path, 'url': url},
+                         'call_transcript': {'path': file_path, 'url': url}
+                     }
+                 }
         """
-        # Get company info from config manager
-        company_info = self.config_manager.get_company(ticker)
-        if not company_info:
-            logging.error(f"No configuration found for ticker {ticker}")
-            return None
-        
-        # Get latest release information
+        # Get latest release info
         year, quarter, release_data = self.config_manager.get_latest_release(ticker)
+        
         if not release_data:
             logging.error(f"No release data found for {ticker}")
             return None
         
-        result = {
-            'company': company_info['name'],
-            'ticker': company_info['ticker'],
-            'quarter': quarter,
-            'year': year,
-            'ir_site': company_info['ir_site'],
-            'files': {}
-        }
+        # Record of downloaded files
+        downloaded_files = {}
         
-        # Download earnings release PDF if available
-        if release_data.get('earnings_release'):
-            pdf_url = release_data['earnings_release']
-            # Skip if the URL is just the IR site (requires manual navigation)
-            if pdf_url != company_info['ir_site']:
-                pdf_path = self.download_file(
-                    pdf_url,
-                    ticker,
-                    quarter,
-                    year,
-                    'earnings_release'
-                )
-                if pdf_path:
-                    result['files']['earnings_release'] = {
-                        'path': pdf_path,
-                        'url': pdf_url
-                    }
-        
-        # Download call transcript PDF if available
-        if release_data.get('call_transcript'):
-            transcript_url = release_data['call_transcript']
-            transcript_path = self.download_file(
-                transcript_url,
-                ticker,
-                quarter,
-                year,
-                'call_transcript'
-            )
-            if transcript_path:
-                result['files']['call_transcript'] = {
-                    'path': transcript_path,
-                    'url': transcript_url
-                }
-        
-        if not result['files']:
-            logging.warning(f"\nNo documents were successfully downloaded for {company_info['name']} ({ticker.upper()})")
-            logging.warning(f"Please check the investor relations site manually: {company_info['ir_site']}")
-            logging.warning("Possible reasons for download failures:")
-            logging.warning("1. The documents require login credentials or are behind a paywall")
-            logging.warning("2. The URLs in the configuration are incorrect or outdated")
-            logging.warning("3. The company website has strict security measures against automated downloads")
-            logging.warning("\nAction required: Navigate to the IR site and download the documents manually.")
-        
-        return result
+        # Download each available document type
+        for doc_type in ['earnings_release', 'call_transcript']:
+            if doc_type in release_data and release_data[doc_type]:
+                url = release_data[doc_type]
+                try:
+                    file_path = self.download_file(url, ticker, year, quarter, doc_type)
+                    if file_path:
+                        downloaded_files[doc_type] = {'path': file_path, 'url': url}
+                    else:
+                        logging.warning(f"Failed to download {doc_type} for {ticker} {quarter} {year}")
+                except Exception as e:
+                    # Log but don't crash on download errors
+                    logging.warning(f"Error downloading {doc_type} for {ticker} {quarter} {year}: {str(e)}")
+                    
+        # Log warning if SeekingAlpha transcript couldn't be downloaded
+        if 'call_transcript' in release_data and 'seekingalpha.com' in release_data['call_transcript'] and 'call_transcript' not in downloaded_files:
+            logging.warning(f"SeekingAlpha transcript could not be accessed - this is normal as it requires a subscription.")
+            logging.warning(f"Analysis will proceed with available documents only.")
+            
+        # Continue if we have at least one document
+        if downloaded_files:
+            return {
+                'quarter': quarter,
+                'year': year,
+                'files': downloaded_files
+            }
+        else:
+            logging.error(f"No documents could be downloaded for {ticker} {quarter} {year}")
+            return None
     
     def get_available_companies(self):
         """Returns a list of available company tickers from the configuration."""
