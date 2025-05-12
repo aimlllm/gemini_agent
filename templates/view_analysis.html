@@ -1,0 +1,113 @@
+{% extends "base.html" %}
+
+{% block title %}View Analysis{% endblock %}
+
+{% block head %}
+<!-- Markdown CSS -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/github-markdown-css@5.1.0/github-markdown.min.css">
+{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1>Analysis: {{ filename }}</h1>
+        <div class="btn-group" role="group">
+            <a href="{{ url_for('analyses') }}" class="btn btn-outline-secondary">Back to All Analyses</a>
+            <button type="button" class="btn btn-success" 
+                    data-bs-toggle="modal" 
+                    data-bs-target="#emailModal" 
+                    data-filename="{{ filename }}">Send Email</button>
+        </div>
+    </div>
+    
+    <div class="card">
+        <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+            <h5 class="card-title mb-0">Analysis Content</h5>
+            <div>
+                <button class="btn btn-sm btn-light mx-2" id="viewRawBtn">View Raw</button>
+                <button class="btn btn-sm btn-light mx-2" id="viewHtmlBtn">View Formatted</button>
+                <button class="btn btn-sm btn-light" id="copyBtn">Copy to Clipboard</button>
+            </div>
+        </div>
+        <div class="card-body">
+            <div id="formatted-content" class="markdown-content markdown-body">
+                {{ content | safe }}
+            </div>
+            <div id="raw-content" class="markdown-content" style="display: none;">
+                <pre><code>{{ raw_content }}</code></pre>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Email Modal -->
+<div class="modal fade" id="emailModal" tabindex="-1" aria-labelledby="emailModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="emailModalLabel">Send Analysis Email</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form action="{{ url_for('send_email') }}" method="post">
+                <div class="modal-body">
+                    <p>Are you sure you want to send this analysis via email?</p>
+                    <p><strong>File:</strong> {{ filename }}</p>
+                    <input type="hidden" name="filename" value="{{ filename }}">
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-success">Send Email</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Toggle between raw and formatted views
+    const viewRawBtn = document.getElementById('viewRawBtn');
+    const viewHtmlBtn = document.getElementById('viewHtmlBtn');
+    const formattedContent = document.getElementById('formatted-content');
+    const rawContent = document.getElementById('raw-content');
+    
+    if (viewRawBtn && viewHtmlBtn) {
+        viewRawBtn.addEventListener('click', function() {
+            formattedContent.style.display = 'none';
+            rawContent.style.display = 'block';
+            viewRawBtn.classList.add('active');
+            viewHtmlBtn.classList.remove('active');
+        });
+        
+        viewHtmlBtn.addEventListener('click', function() {
+            formattedContent.style.display = 'block';
+            rawContent.style.display = 'none';
+            viewHtmlBtn.classList.add('active');
+            viewRawBtn.classList.remove('active');
+        });
+    }
+    
+    // Copy content functionality
+    const copyBtn = document.getElementById('copyBtn');
+    
+    if (copyBtn) {
+        copyBtn.addEventListener('click', function() {
+            const textarea = document.createElement('textarea');
+            textarea.value = `{{ raw_content | replace('\\', '\\\\') | replace('\n', '\\n') | replace('\'', '\\\'') | replace('"', '\\"') }}`;
+            document.body.appendChild(textarea);
+            textarea.select();
+            document.execCommand('copy');
+            document.body.removeChild(textarea);
+            
+            const originalText = copyBtn.innerText;
+            copyBtn.innerText = 'Copied!';
+            setTimeout(() => {
+                copyBtn.innerText = originalText;
+            }, 2000);
+        });
+    }
+});
+</script>
+{% endblock %} 

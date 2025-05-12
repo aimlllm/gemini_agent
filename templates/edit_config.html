@@ -1,0 +1,101 @@
+{% extends "base.html" %}
+
+{% block title %}Edit {{ config_type }} Configuration{% endblock %}
+
+{% block head %}
+<!-- CodeMirror for code syntax highlighting -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.3/codemirror.min.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.3/theme/eclipse.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.3/codemirror.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.3/mode/javascript/javascript.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.3/mode/markdown/markdown.min.js"></script>
+{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1>Edit {{ config_type }} Configuration</h1>
+        <a href="{{ url_for('index') }}" class="btn btn-outline-secondary">Back to Dashboard</a>
+    </div>
+    
+    <div class="card">
+        <div class="card-header bg-primary text-white">
+            <h5 class="card-title mb-0">Configuration File: {{ config_path }}</h5>
+        </div>
+        <div class="card-body">
+            <form action="{{ request.path }}" method="post">
+                <div class="mb-3">
+                    <textarea id="config_editor" name="config_data" class="form-control config-editor">{{ config_data }}</textarea>
+                </div>
+                
+                <div class="d-flex justify-content-between">
+                    <button type="submit" class="btn btn-primary">Save Changes</button>
+                    <button type="button" class="btn btn-danger" id="resetBtn">Reset to Original</button>
+                </div>
+            </form>
+        </div>
+        <div class="card-footer">
+            <div class="alert alert-info mb-0">
+                <strong>Tip:</strong> 
+                {% if config_type == "Company" %}
+                Edit the company information, earnings releases, and document URLs. Make sure to keep the correct JSON format.
+                {% elif config_type == "Email" %}
+                Update email recipients, CC list, and other email settings. Don't forget to include a valid recipients list.
+                {% elif config_type == "Prompt" %}
+                Modify the prompt template sent to Gemini API. Use {company_name}, {quarter}, and {year} as placeholders.
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Initialize CodeMirror
+    var editorMode = "{{ config_type|lower }}";
+    var mode = editorMode === "company" || editorMode === "email" ? "application/json" : "markdown";
+    
+    var editor = CodeMirror.fromTextArea(document.getElementById('config_editor'), {
+        lineNumbers: true,
+        mode: mode,
+        theme: "eclipse",
+        lineWrapping: true,
+        tabSize: 2,
+        indentWithTabs: false,
+        extraKeys: {"Ctrl-Space": "autocomplete"}
+    });
+    
+    // Make the editor responsive
+    editor.setSize(null, 500);
+    
+    // Store original content for reset
+    var originalContent = editor.getValue();
+    
+    // Reset button functionality
+    document.getElementById('resetBtn').addEventListener('click', function() {
+        if (confirm('Are you sure you want to reset all changes?')) {
+            editor.setValue(originalContent);
+        }
+    });
+    
+    // Form validation
+    document.querySelector('form').addEventListener('submit', function(e) {
+        var content = editor.getValue();
+        
+        if (mode === "application/json") {
+            try {
+                JSON.parse(content);
+            } catch (error) {
+                e.preventDefault();
+                alert('Invalid JSON: ' + error.message);
+            }
+        } else if (content.trim() === '') {
+            e.preventDefault();
+            alert('Configuration cannot be empty.');
+        }
+    });
+});
+</script>
+{% endblock %} 
