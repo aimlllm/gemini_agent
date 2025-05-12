@@ -176,8 +176,28 @@ def main():
             download_result['year']
         )
         
+        # Format the result
+        result = {
+            'content': analysis,
+            'ticker': company_info['ticker'],
+            'company': company_info['name'],
+            'quarter': download_result['quarter'],
+            'year': download_result['year'],
+            'documents': download_result['files']
+        }
+        
+        # Save the analysis
+        output_path = os.path.join(
+            args.output_dir,
+            f"{company_info['ticker'].lower()}_{download_result['year']}_{download_result['quarter']}_combined_gcp_impact.md"
+        )
+        os.makedirs(os.path.dirname(output_path), exist_ok=True)
+        with open(output_path, 'w', encoding='utf-8') as f:
+            f.write(analysis)
+        logging.info(f"Analysis saved to {output_path}")
+        
         # Add ticker for email generation
-        analysis['ticker'] = company_info['ticker']
+        result['ticker'] = company_info['ticker']
     
     # Process custom URL analysis
     elif args.custom_url:
@@ -215,20 +235,34 @@ def main():
         # Add document information to analysis
         analysis['document_type'] = args.file_type
         analysis['document_url'] = args.custom_url
+        
+        # Format the result
+        result = {
+            'content': analysis,
+            'ticker': 'custom',
+            'company': 'Custom Company',
+            'quarter': 'Custom',
+            'year': 'Custom',
+            'documents': [file_path]
+        }
+        
+        # Save the analysis
+        output_path = os.path.join(
+            args.output_dir,
+            f"custom_{datetime.now().strftime('%Y%m%d_%H%M%S')}_combined_gcp_impact.md"
+        )
+        os.makedirs(os.path.dirname(output_path), exist_ok=True)
+        with open(output_path, 'w', encoding='utf-8') as f:
+            f.write(analysis)
+        logging.info(f"Analysis saved to {output_path}")
     
     # Save analysis to output directory
-    if analysis:
-        # Create a unique identifier for the analysis files
-        if args.ticker:
-            identifier = f"{args.ticker.lower()}_{download_result['year']}_{download_result['quarter']}"
-        else:
-            identifier = f"custom_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
-        
+    if result:
         # Generate email-friendly markdown
-        email_markdown = generate_email_markdown(analysis, config_manager)
+        email_markdown = generate_email_markdown(result, config_manager)
         
         # Save as markdown file
-        analysis_filename = f"{identifier}_combined_gcp_impact.md"
+        analysis_filename = f"{result['ticker']}_{result['year']}_{result['quarter']}_combined_gcp_impact.md"
         analysis_path = os.path.join(args.output_dir, analysis_filename)
         
         try:

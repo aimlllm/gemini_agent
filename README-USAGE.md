@@ -71,6 +71,30 @@ The system uses these key components to handle latest documents:
 2. **EarningsDocDownloader.download_latest_earnings(ticker)** - Downloads the documents for the latest period
 3. **EarningsAnalyzer.analyze_earnings_documents(documents, company_name, quarter, year)** - Analyzes the documents
 
+## Customizing the Analysis Prompt
+
+The analysis prompt used by Gemini can be customized by editing the `config/prompt_config.txt` file. This allows you to modify the analysis structure, sections, and instructions without changing the code.
+
+### Prompt Format
+
+The prompt is stored as a simple text file with placeholders for dynamic values:
+- `{company_name}` - Will be replaced with the company name
+- `{quarter}` - Will be replaced with the quarter (e.g., Q1)
+- `{year}` - Will be replaced with the year
+
+Example:
+```
+You are a strategic analyst for Google Cloud Platform, analyzing {company_name}'s {quarter} {year} earnings documents.
+
+Create an email-ready analysis that combines insights from all provided documents, focusing on:
+
+## Financial Overview
+- Key financial results with cloud market implications
+...
+```
+
+You can edit this file directly to change how Gemini processes the earnings documents.
+
 ## Troubleshooting
 
 If you encounter issues downloading documents:

@@ -3,11 +3,17 @@ from google.genai import types
 import config
 import os
 import logging
+import io
+import PyPDF2
+import binascii
 
 class EarningsAnalyzer:
     def __init__(self):
         # Initialize Gemini API client
         self.client = genai.Client(api_key=config.GEMINI_API_KEY)
+        
+        # Load prompt template
+        self.prompt_template = self._load_prompt_template()
         
         # Temporary debug logging to check API key (masked for security)
         api_key = config.GEMINI_API_KEY
@@ -17,152 +23,137 @@ class EarningsAnalyzer:
         else:
             logging.error("No API key found in configuration")
     
-    def analyze_earnings_documents(self, documents, company_name, quarter, year):
-        """
-        Analyze earnings documents (release and/or transcript) in a single Gemini API call.
-        
-        Args:
-            documents (dict): Dictionary of document paths by type
-                             {'earnings_release': {'path': path1, 'url': url1},
-                              'call_transcript': {'path': path2, 'url': url2}}
-            company_name (str): Name of the company
-            quarter (str): Quarter (Q1, Q2, Q3, Q4)
-            year (str): Year
-        
-        Returns:
-            dict: Analysis results formatted for email
-        """
+    def _load_prompt_template(self):
+        """Load the prompt template from the configuration file."""
         try:
-            # Check if we have any documents
-            if not documents:
-                raise ValueError(f"No documents provided for {company_name}")
-            
-            # Initialize Gemini model
-            model = "gemini-2.5-pro-preview-05-06"
-            
-            # Read each document and add it to the input
-            parts = []
-            
-            # Add each document to the parts
-            for doc_type, doc_info in documents.items():
-                file_path = doc_info['path']
-                
-                # Check if file exists
-                if not os.path.exists(file_path):
-                    logging.warning(f"File not found: {file_path}. Skipping.")
-                    continue
-                
-                # Determine file MIME type
-                mime_type = self._get_mime_type(file_path)
-                
-                # Label what type of document this is
-                doc_label = "earnings release" if doc_type == "earnings_release" else "earnings call transcript"
-                parts.append(types.Part(text=f"\nDOCUMENT TYPE: {doc_label.upper()}\n"))
-                
-                # Read the file as binary
-                try:
-                    with open(file_path, 'rb') as f:
-                        file_data = f.read()
-                        
-                    parts.append(
-                        types.Part(
-                            inline_data=types.Blob(
-                                mime_type=mime_type,
-                                data=file_data
-                            )
-                        )
-                    )
-                    logging.info(f"Successfully loaded {doc_label}: {os.path.basename(file_path)}")
-                except Exception as e:
-                    logging.error(f"Error reading {file_path}: {str(e)}")
-            
-            # Add the consolidated analysis prompt after all documents
-            prompt = f"""
+            with open(config.PROMPT_CONFIG_PATH, 'r') as file:
+                prompt_template = file.read()
+                logging.info(f"Loaded prompt template from {config.PROMPT_CONFIG_PATH}")
+                return prompt_template
+        except Exception as e:
+            logging.error(f"Failed to load prompt template: {e}")
+            # Fallback to default prompt if file cannot be loaded
+            return """
             You are a strategic analyst for Google Cloud Platform, analyzing {company_name}'s {quarter} {year} earnings documents.
             
-            Create an email-ready analysis that combines insights from all provided documents, focusing on:
+            Create an email-ready analysis focusing on:
+            - Financial Overview
+            - Cloud Strategy and Competitive Position
+            - Technology and AI Investments
+            - Customer and Partner Intelligence
+            - Strategic Implications for Google/GCP
             
-            ## Financial Overview
-            - Key financial results with cloud market implications
-            - YoY growth rates in relevant areas (revenue, profit, R&D)
-            
-            ## Cloud Strategy and Competitive Position
-            - Current cloud strategy and market position
-            - Strategic direction changes or investments
-            - Competitive positioning against Google Cloud
-
-            ## Technology and AI Investments
-            - Technology investments that might affect cloud adoption
-            - AI/ML initiatives that could complement or compete with GCP offerings
-            - Data center expansions or efficiency improvements
-            - Enterprise sales strategy changes relevant to cloud providers
-            
-            ## Customer and Partner Intelligence
-            - Notable customer wins or losses in cloud services
-            - Partner ecosystem developments relevant to cloud
-            - Changes in enterprise customer spending patterns
-            
-            ## Strategic Implications for Google/GCP
-            - Opportunities for Google Cloud based on these earnings documents
-            - Potential threats to Google Cloud's market position
-            - Recommended actions for GCP leadership
-
             Format as clean, professional markdown suitable for immediate email distribution.
-            Be concise, data-driven, and actionable, focusing on strategic implications.
-            For each insight, specify the exact source (document type and location).
-            
-            IMPORTANT: Do NOT include phrases like "Executive Summary" or "Here is an analysis of..." in your response.
-            Start directly with the content and ensure the analysis is self-contained and ready to be sent as is.
             """
-            
-            parts.append(types.Part(text=prompt))
-            
-            # Create content with all documents and prompt
-            content = types.Content(parts=parts)
-            
-            # Generate content with a single API call
-            logging.info(f"Sending analysis request to Gemini model: {model}")
-            response = self.client.models.generate_content(
-                model=model,
-                contents=content
-            )
-            
-            logging.info(f"Successfully generated analysis for {company_name}")
-            
-            # Construct the URLs dictionary for all document types
-            document_urls = {
-                doc_type: doc_info['url'] 
-                for doc_type, doc_info in documents.items()
-            }
-            
-            return {
-                'company': company_name,
-                'period': f"{quarter} {year}",
-                'document_types': list(documents.keys()),
-                'document_urls': document_urls,
-                'analysis': response.text
-            }
-            
-        except Exception as e:
-            logging.error(f"Error creating analysis: {str(e)}")
-            return {
-                'company': company_name,
-                'period': f"{quarter} {year}",
-                'document_types': list(documents.keys()) if documents else [],
-                'error': str(e)
-            }
     
-    def _get_mime_type(self, file_path):
-        """Determine MIME type based on file extension"""
-        ext = os.path.splitext(file_path)[1].lower()
-        if ext == '.pdf':
-            return 'application/pdf'
-        elif ext in ['.txt', '.md']:
-            return 'text/plain'
-        elif ext == '.html':
-            return 'text/html'
-        elif ext in ['.docx', '.doc']:
-            return 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
-        else:
-            # Default to text
-            return 'text/plain' 
+    def _extract_text_from_pdf(self, pdf_path):
+        """Extract text from a PDF file."""
+        try:
+            with open(pdf_path, 'rb') as file:
+                pdf_reader = PyPDF2.PdfReader(file)
+                text = ""
+                # Extract text from each page
+                for page_num in range(len(pdf_reader.pages)):
+                    page = pdf_reader.pages[page_num]
+                    text += page.extract_text() + "\n\n"
+                return text
+        except Exception as e:
+            logging.error(f"Error extracting text from PDF {pdf_path}: {e}")
+            return f"[Error extracting text from PDF: {e}]"
+    
+    def _prepare_prompt(self, documents, company_name, quarter, year):
+        """Prepare the prompt with document content and company details."""
+        # Format the prompt template with company details
+        prompt = self.prompt_template.format(
+            company_name=company_name,
+            quarter=quarter,
+            year=year
+        )
+        
+        # Add document content to the prompt
+        full_prompt = prompt + "\n\n## Document Content:\n\n"
+        
+        for doc_type, content in documents.items():
+            full_prompt += f"### {doc_type.replace('_', ' ').title()}\n"
+            # Handle content that might be a dictionary with 'path' and 'url' keys
+            if isinstance(content, dict) and 'path' in content:
+                file_path = content['path']
+                if file_path.lower().endswith('.pdf'):
+                    # Extract text from PDF
+                    doc_content = self._extract_text_from_pdf(file_path)
+                    # Truncate if too long
+                    if len(doc_content) > 100000:
+                        doc_content = doc_content[:100000] + "... [content truncated]"
+                    full_prompt += doc_content + "\n\n"
+                else:
+                    try:
+                        with open(file_path, 'r', encoding='utf-8', errors='replace') as file:
+                            doc_content = file.read()
+                            full_prompt += doc_content + "\n\n"
+                    except Exception as e:
+                        logging.error(f"Error reading file {file_path}: {e}")
+                        full_prompt += f"[Error reading file: {e}]\n\n"
+            else:
+                # Content is already a string
+                full_prompt += str(content) + "\n\n"
+        
+        return full_prompt
+    
+    def analyze_earnings_documents(self, documents, company_name, quarter, year):
+        """
+        Analyze earnings documents for a company.
+        
+        Args:
+            documents (dict): Dictionary with document types as keys and content as values
+            company_name (str): Company name
+            quarter (str): Quarter (e.g., 'Q1')
+            year (str): Year (e.g., '2023')
+            
+        Returns:
+            str: Gemini analysis of the earnings documents
+        """
+        logging.info(f"Analyzing {company_name} {quarter} {year} earnings documents")
+        
+        if not documents:
+            logging.error("No documents provided for analysis")
+            return "Error: No documents provided for analysis."
+        
+        # Prepare the prompt
+        prompt = self._prepare_prompt(documents, company_name, quarter, year)
+        
+        logging.info(f"Sending prompt to Gemini (length: {len(prompt)} chars)")
+        
+        try:
+            # Call Gemini API with version-specific handling
+            try:
+                # Try newer API version
+                model = self.client.get_generative_model("gemini-2.5-pro-preview-05-06")
+                response = model.generate_content(prompt)
+            except AttributeError:
+                # Fall back to older API version
+                logging.info("Falling back to older Gemini API format")
+                generation_config = {
+                    "temperature": 0.2,
+                    "max_output_tokens": 4096,
+                }
+                
+                response = self.client.generate_content(
+                    model="gemini-2.5-pro-preview-05-06",
+                    contents=prompt,
+                    generation_config=generation_config
+                )
+            
+            # Extract text from response
+            if hasattr(response, 'text'):
+                analysis = response.text
+            elif hasattr(response, 'candidates') and response.candidates:
+                analysis = response.candidates[0].content.parts[0].text
+            else:
+                logging.error("Unexpected response format from Gemini API")
+                return "Error: Unexpected response format from Gemini API."
+            
+            logging.info(f"Received analysis from Gemini (length: {len(analysis)} chars)")
+            return analysis
+        except Exception as e:
+            logging.error(f"Error calling Gemini API: {e}")
+            return f"Error: Failed to analyze documents: {e}" 
