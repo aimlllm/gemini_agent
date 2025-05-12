@@ -721,3 +721,68 @@ After deployment, you'll need to set up your configuration sheets:
 1. Go to Google Cloud Console > "Billing" > "Cost Management"
 2. Set up a budget alert to monitor your costs
 3. The typical cost for running this service is approximately $25-50/month, depending on usage 
+
+
+
+# Windows
+# 1️⃣ Install prerequisites via winget (Windows 10/11)
+#    ───────────────────────────────────────────────────────
+winget install --id HashiCorp.Terraform -e --source winget
+winget install --id Google.CloudSDK -e --source winget
+winget install --id OpenJS.NodeJS.LTS -e --source winget
+
+# After installation, close and re-open PowerShell so that 'terraform', 'gcloud' and 'npm' are on your PATH.
+
+# 2️⃣ Authenticate & initialize Google Cloud SDK
+#    ────────────────────────────────────────────────
+gcloud init
+
+# 3️⃣ Create your GCP project
+#    ───────────────────────────
+#    Replace YOUR_PROJECT_ID with something globally unique
+$env:PROJECT_ID = Read-Host "Enter your GCP project ID (e.g. my-earnings-agent-123)"
+gcloud projects create $env:PROJECT_ID --name="Earnings Agent"
+
+# 4️⃣ Enable required Cloud APIs
+#    ─────────────────────────────
+gcloud services enable `
+    cloudfunctions.googleapis.com `
+    pubsub.googleapis.com `
+    firestore.googleapis.com `
+    aiplatform.googleapis.com `
+    storage.googleapis.com `
+    cloudscheduler.googleapis.com `
+    secretmanager.googleapis.com `
+  --project $env:PROJECT_ID
+
+# 5️⃣ Set REGION for this session (you can change if desired)
+#    ────────────────────────────────────────────────────────
+$env:REGION = "us-central1"
+
+# 6️⃣ Deploy Terraform infrastructure
+#    ──────────────────────────────────
+cd infrastructure
+terraform init
+terraform apply -auto-approve
+
+# 7️⃣ Install and test your Cloud Functions locally
+#    ────────────────────────────────────────────────
+cd ..\functions\earnings_detector
+npm install
+
+# (Optional) run your unit tests and local emulator:
+npm test
+npm start
+
+# 8️⃣ Manual test via PowerShell (Invoke-RestMethod)
+#    ────────────────────────────────────────────────
+#    Adjust EXAMPLE_TICKER and date as needed:
+$token = gcloud auth print-identity-token
+$body  = @{ company = "EXAMPLE_TICKER"; date = "2023-05-15" } | ConvertTo-Json
+Invoke-RestMethod -Method Post `
+  -Uri "https://$env:REGION-$env:PROJECT_ID.cloudfunctions.net/earningsDetector" `
+  -Headers @{
+    Authorization = "Bearer $token"
+    "Content-Type" = "application/json"
+  } `
+  -Body $body
