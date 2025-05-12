@@ -1,0 +1,88 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <h1 class="mb-4">GCP Earnings Impact Analysis Dashboard</h1>
+    
+    <div class="row">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="card-title mb-0">Run New Analysis</h5>
+                </div>
+                <div class="card-body">
+                    <form action="{{ url_for('run_analysis') }}" method="post">
+                        <div class="mb-3">
+                            <label for="ticker" class="form-label">Select Company:</label>
+                            <select class="form-select" id="ticker" name="ticker" required>
+                                <option value="">-- Select a company --</option>
+                                {% for ticker, info in companies.items() %}
+                                <option value="{{ ticker }}">{{ info.name }} ({{ ticker.upper() }})</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        
+                        <button type="submit" class="btn btn-primary">
+                            <span class="spinner-border spinner-border-sm d-none" role="status" aria-hidden="true" id="analysisSpinner"></span>
+                            Run Analysis
+                        </button>
+                    </form>
+                </div>
+                <div class="card-footer">
+                    <small class="text-muted">This will download the latest earnings documents and generate an analysis using Gemini API</small>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header bg-info text-white">
+                    <h5 class="card-title mb-0">Quick Links</h5>
+                </div>
+                <div class="card-body">
+                    <div class="list-group">
+                        <a href="{{ url_for('analyses') }}" class="list-group-item list-group-item-action">
+                            <div class="d-flex w-100 justify-content-between">
+                                <h5 class="mb-1">View Previous Analyses</h5>
+                                <span class="badge bg-primary rounded-pill">→</span>
+                            </div>
+                            <p class="mb-1">Access and review all previously generated analyses</p>
+                        </a>
+                        <a href="{{ url_for('edit_company_config') }}" class="list-group-item list-group-item-action">
+                            <div class="d-flex w-100 justify-content-between">
+                                <h5 class="mb-1">Company Configuration</h5>
+                                <span class="badge bg-primary rounded-pill">→</span>
+                            </div>
+                            <p class="mb-1">Manage companies and earnings release data</p>
+                        </a>
+                        <a href="{{ url_for('edit_prompt_config') }}" class="list-group-item list-group-item-action">
+                            <div class="d-flex w-100 justify-content-between">
+                                <h5 class="mb-1">Prompt Configuration</h5>
+                                <span class="badge bg-primary rounded-pill">→</span>
+                            </div>
+                            <p class="mb-1">Customize the analysis prompt for Gemini</p>
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const form = document.querySelector('form[action="{{ url_for("run_analysis") }}"]');
+    const spinner = document.getElementById('analysisSpinner');
+    
+    if (form) {
+        form.addEventListener('submit', function() {
+            spinner.classList.remove('d-none');
+        });
+    }
+});
+</script>
+{% endblock %} 
