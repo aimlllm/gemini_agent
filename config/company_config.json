@@ -10,6 +10,7 @@
             "date": "May 2, 2025",
             "time": "after-market close",
             "earnings_release": "https://ir.aboutamazon.com/files/doc_financials/2025/q1/AMZN-Q1-2025-Earnings-Release.pdf",
+            "call_transcript": "https://seekingalpha.com/article/4780834-amazon-com-inc-amzn-q1-2025-earnings-call-transcript"
           },
           "Q2": {
             "expected_date": "Around July 25, 2025",
@@ -30,7 +31,7 @@
             "date": "April 30, 2025", 
             "time": "2:30 p.m. PT",
             "earnings_release": "https://static.poder360.com.br/2025/04/Microsoft-1otrimestre.pdf",
-            "earnings_release": "https://www.microsoft.com/en-us/Investor/earnings/FY-2025-Q3/press-release-webcast",
+            "call_transcript": "https://www.microsoft.com/en-us/investor/events/fy-2025/earnings-fy-2025-q3"
           },
           "Q4": {
             "expected_date": "Tentatively July 2025",
@@ -72,6 +73,7 @@
             "date": "May 6, 2025",
             "time": "1:30 p.m. PT",
             "earnings_release": "https://d1io3yog0oux5.cloudfront.net/_c8499822669cc7bb919d7751cfb9f77c/amd/news/2025-05-06_AMD_Reports_First_Quarter_2025_Financial_1247.pdf",
+            "call_transcript": "https://seekingalpha.com/article/4782650-advanced-micro-devices-inc-amd-q1-2025-earnings-call-transcript"
           },
           "Q2": {
             "expected_date": "July 29, 2025",
@@ -92,6 +94,7 @@
             "date": "April 23, 2025",
             "time": "5:00 p.m. ET",
             "earnings_release": "https://www.ibm.com/investor/financial-reporting",
+            "call_transcript": "https://seekingalpha.com/article/4777795-international-business-machines-corporation-ibm-q1-2025-earnings-call-transcript"
           },
           "Q2": {
             "expected_date": "July 23, 2025",
@@ -112,7 +115,7 @@
             "date": "March 10, 2025",
             "time": "after-market close",
             "earnings_release": "https://s23.q4cdn.com/440135859/files/doc_financials/2025/q3/3q25-pressrelease-March-final.pdf",
-            "earnings_release": "https://www.oracle.com/news/announcement/q3fy25-earnings-release-2025-03-10/",
+            "call_transcript": "https://www.gurufocus.com/news/2734643/q3-2025-oracle-corp-earnings-call-transcript"
           },
           "Q4": {
             "expected_date": "June 10, 2025",
@@ -132,6 +135,8 @@
           "March Quarter": {
             "date": "May 15, 2025",
             "time": "after-market close",
+            "earnings_release": "https://www.alibabagroup.com/en/news/press_pdf/p250515.pdf",
+            "call_transcript": "https://seekingalpha.com/article/4785234-alibaba-group-holding-limited-baba-q4-2025-earnings-call-transcript"
           },
           "June Quarter": {
             "expected_date": "Aug 14, 2025",
@@ -152,6 +157,7 @@
             "date": "February 26, 2025",
             "time": "after-market close",
             "earnings_release": "https://investor.salesforce.com/files/doc_financials/2025/q1/CRM-Q1-FY25-Earnings-Press-Release-w-financials.pdf",
+            "call_transcript": "https://seekingalpha.com/article/4744123-salesforce-inc-crm-q1-2025-earnings-call-transcript"
           },
           "Q2": {
             "expected_date": "May 29, 2025",
@@ -171,6 +177,8 @@
           "Q1": {
             "date": "April 22, 2025",
             "time": "5:00 p.m. ET",
+            "earnings_release": "https://www.prnewswire.com/news-releases/sap-quarterly-statement-q1-2025-302434876.html",
+            "call_transcript": "https://www.insidermonkey.com/blog/sap-se-nysesap-q1-2025-earnings-call-transcript-1515720/"
           },
           "Q2": {
             "expected_date": "July 22, 2025",
@@ -188,9 +196,13 @@
       "releases": {
         "2025": {
           "Q1": {
+            "date": "April 24, 2025",
             "time": "after-market close",
+            "earnings_release": "https://abc.xyz/assets/34/fa/ee06f3de4338b99acffc5c229d9f/2025q1-alphabet-earnings-release.pdf",
+            "call_transcript": "https://seekingalpha.com/article/4777993-alphabet-inc-goog-q1-2025-earnings-call-transcript"
           },
           "Q2": {
+            "expected_date": "July 23, 2025",
             "expected_time": "after-market close",
             "earnings_release": null,
             "call_transcript": null
@@ -200,5 +212,7 @@
     }
   },
   "meta": {
+    "last_updated": "2025-05-12T12:00:00Z",
     "version": "1.0.0"
   }
+}
