@@ -9,9 +9,6 @@ class EarningsAnalyzer:
         # Initialize Gemini API client
         self.client = genai.Client(api_key=config.GEMINI_API_KEY)
         
-        # Load prompt template
-        self.prompt_template = self._load_prompt_template()
-        
         # Temporary debug logging to check API key (masked for security)
         api_key = config.GEMINI_API_KEY
         if api_key:
@@ -19,29 +16,6 @@ class EarningsAnalyzer:
             logging.info(f"API key loaded: {masked_key}")
         else:
             logging.error("No API key found in configuration")
-    
-    def _load_prompt_template(self):
-        """Load the prompt template from the configuration file."""
-        try:
-            with open(config.PROMPT_CONFIG_PATH, 'r') as file:
-                prompt_template = file.read()
-                logging.info(f"Loaded prompt template from {config.PROMPT_CONFIG_PATH}")
-                return prompt_template
-        except Exception as e:
-            logging.error(f"Failed to load prompt template: {e}")
-            # Fallback to default prompt if file cannot be loaded
-            return """
-            You are a strategic analyst for Google Cloud Platform, analyzing {company_name}'s {quarter} {year} earnings documents.
-            
-            Create an email-ready analysis focusing on:
-            - Financial Overview
-            - Cloud Strategy and Competitive Position
-            - Technology and AI Investments
-            - Customer and Partner Intelligence
-            - Strategic Implications for Google/GCP
-            
-            Format as clean, professional markdown suitable for immediate email distribution.
-            """
     
     def analyze_earnings_documents(self, documents, company_name, quarter, year):
         """
@@ -56,22 +30,12 @@ class EarningsAnalyzer:
             year (str): Year
         
         Returns:
-            str: Analysis text
+            dict: Analysis results formatted for email
         """
         try:
             # Check if we have any documents
             if not documents:
-                logging.error("No documents provided for analysis")
-                return "Error: No documents provided for analysis."
-            
-            # Check available documents
-            available_types = list(documents.keys())
-            logging.info(f"Available documents: {', '.join(available_types)}")
-            
-            if 'call_transcript' not in available_types:
-                logging.warning("Call transcript is not available. Analysis will be based only on earnings release.")
-            elif 'earnings_release' not in available_types:
-                logging.warning("Earnings release is not available. Analysis will be based only on call transcript.")
+                raise ValueError(f"No documents provided for {company_name}")
             
             # Initialize Gemini model
             model = "gemini-2.5-pro-preview-05-06"
@@ -95,12 +59,11 @@ class EarningsAnalyzer:
                 doc_label = "earnings release" if doc_type == "earnings_release" else "earnings call transcript"
                 parts.append(types.Part(text=f"\nDOCUMENT TYPE: {doc_label.upper()}\n"))
                 
-                # Read the file as binary and send directly to Gemini
+                # Read the file as binary
                 try:
                     with open(file_path, 'rb') as f:
                         file_data = f.read()
-                    
-                    # Send binary content directly to Gemini
+                        
                     parts.append(
                         types.Part(
                             inline_data=types.Blob(
@@ -113,42 +76,81 @@ class EarningsAnalyzer:
                 except Exception as e:
                     logging.error(f"Error reading {file_path}: {str(e)}")
             
-            # Add the consolidated analysis prompt from template
-            prompt = self.prompt_template.format(
-                company_name=company_name,
-                quarter=quarter,
-                year=year
-            )
+            # Add the consolidated analysis prompt after all documents
+            prompt = f"""
+            You are a strategic analyst for Google Cloud Platform, analyzing {company_name}'s {quarter} {year} earnings documents.
+            
+            Create an email-ready analysis that combines insights from all provided documents, focusing on:
+            
+            ## Financial Overview
+            - Key financial results with cloud market implications
+            - YoY growth rates in relevant areas (revenue, profit, R&D)
+            
+            ## Cloud Strategy and Competitive Position
+            - Current cloud strategy and market position
+            - Strategic direction changes or investments
+            - Competitive positioning against Google Cloud
+
+            ## Technology and AI Investments
+            - Technology investments that might affect cloud adoption
+            - AI/ML initiatives that could complement or compete with GCP offerings
+            - Data center expansions or efficiency improvements
+            - Enterprise sales strategy changes relevant to cloud providers
+            
+            ## Customer and Partner Intelligence
+            - Notable customer wins or losses in cloud services
+            - Partner ecosystem developments relevant to cloud
+            - Changes in enterprise customer spending patterns
+            
+            ## Strategic Implications for Google/GCP
+            - Opportunities for Google Cloud based on these earnings documents
+            - Potential threats to Google Cloud's market position
+            - Recommended actions for GCP leadership
+
+            Format as clean, professional markdown suitable for immediate email distribution.
+            Be concise, data-driven, and actionable, focusing on strategic implications.
+            For each insight, specify the exact source (document type and location).
+            
+            IMPORTANT: Do NOT include phrases like "Executive Summary" or "Here is an analysis of..." in your response.
+            Start directly with the content and ensure the analysis is self-contained and ready to be sent as is.
+            """
+            
             parts.append(types.Part(text=prompt))
             
             # Create content with all documents and prompt
             content = types.Content(parts=parts)
             
             # Generate content with a single API call
-            logging.info(f"Sending prompt to Gemini (length: {sum(len(str(p)) for p in parts)} chars)")
+            logging.info(f"Sending analysis request to Gemini model: {model}")
+            response = self.client.models.generate_content(
+                model=model,
+                contents=content
+            )
             
-            try:
-                response = self.client.models.generate_content(
-                    model=model,
-                    contents=content
-                )
-                
-                if not response or not hasattr(response, 'text') or not response.text:
-                    logging.error("Received empty response from Gemini API")
-                    return "Error: Gemini API returned an empty response. Please try again with smaller documents or fewer documents."
-                
-                # Extract text from response
-                analysis = response.text
-                logging.info(f"Received analysis from Gemini (length: {len(analysis)} chars)")
-                return analysis
-                
-            except Exception as e:
-                logging.error(f"Error in Gemini API call: {str(e)}")
-                return f"Error: Failed to analyze documents: {str(e)}"
+            logging.info(f"Successfully generated analysis for {company_name}")
+            
+            # Construct the URLs dictionary for all document types
+            document_urls = {
+                doc_type: doc_info['url'] 
+                for doc_type, doc_info in documents.items()
+            }
+            
+            return {
+                'company': company_name,
+                'period': f"{quarter} {year}",
+                'document_types': list(documents.keys()),
+                'document_urls': document_urls,
+                'analysis': response.text
+            }
             
         except Exception as e:
             logging.error(f"Error creating analysis: {str(e)}")
-            return f"Error: {str(e)}"
+            return {
+                'company': company_name,
+                'period': f"{quarter} {year}",
+                'document_types': list(documents.keys()) if documents else [],
+                'error': str(e)
+            }
     
     def _get_mime_type(self, file_path):
         """Determine MIME type based on file extension"""
