@@ -101,12 +101,25 @@ def main():
                         help='Directory to save analysis results')
     parser.add_argument('--config-file', type=str, default=None,
                         help=f'Path to company configuration JSON file (default: {config.COMPANY_CONFIG_PATH})')
+    parser.add_argument('--skip-email', action='store_true',
+                        help='Skip sending email (useful when email credentials are not available)')
     
     args = parser.parse_args()
     
     # Create output directory if it doesn't exist
-    if not os.path.exists(args.output_dir):
-        os.makedirs(args.output_dir)
+    try:
+        if not os.path.exists(args.output_dir):
+            os.makedirs(args.output_dir)
+    except (OSError, PermissionError) as e:
+        logging.warning(f"Could not create output directory {args.output_dir}: {e}")
+        args.output_dir = os.path.join(os.getcwd(), 'results')
+        logging.warning(f"Using fallback output directory: {args.output_dir}")
+        try:
+            if not os.path.exists(args.output_dir):
+                os.makedirs(args.output_dir)
+        except (OSError, PermissionError) as e:
+            logging.error(f"Could not create fallback output directory: {e}")
+            logging.error("Analysis will be performed but results cannot be saved")
     
     # Initialize configuration manager
     config_manager = ConfigManager(args.config_file)
@@ -218,30 +231,45 @@ def main():
         analysis_filename = f"{identifier}_combined_gcp_impact.md"
         analysis_path = os.path.join(args.output_dir, analysis_filename)
         
-        with open(analysis_path, 'w') as f:
-            f.write(email_markdown)
-        
-        logging.info(f"GCP impact analysis saved to {analysis_path} (email-friendly format)")
-        
-        # Send email using the email configuration
         try:
-            # Check if email_config.json exists
-            if os.path.exists(config.EMAIL_CONFIG_PATH):
-                logging.info(f"Sending analysis via email (configured in {config.EMAIL_CONFIG_PATH})")
-                email_result = send_analysis_email(analysis_path)
-                
-                if email_result.get('success', False):
-                    recipients = email_result.get('recipients', [])
-                    cc = email_result.get('cc', [])
-                    all_recipients = recipients + cc
-                    logging.info(f"Email sent successfully to {', '.join(all_recipients)}")
+            with open(analysis_path, 'w') as f:
+                f.write(email_markdown)
+            
+            logging.info(f"GCP impact analysis saved to {analysis_path} (email-friendly format)")
+        except (OSError, PermissionError) as e:
+            logging.error(f"Could not save analysis to {analysis_path}: {e}")
+            print("\nAnalysis Results:")
+            print("=" * 80)
+            print(email_markdown)
+            print("=" * 80)
+        
+        # Send email using the email configuration (if not skipped)
+        if not args.skip_email:
+            try:
+                # Check if email_config.json exists
+                if os.path.exists(config.EMAIL_CONFIG_PATH):
+                    logging.info(f"Sending analysis via email (configured in {config.EMAIL_CONFIG_PATH})")
+                    try:
+                        email_result = send_analysis_email(analysis_path)
+                        
+                        if email_result.get('success', False):
+                            recipients = email_result.get('recipients', [])
+                            cc = email_result.get('cc', [])
+                            all_recipients = recipients + cc
+                            logging.info(f"Email sent successfully to {', '.join(all_recipients)}")
+                        else:
+                            error = email_result.get('error', 'Unknown error')
+                            logging.info(f"Email not sent: {error}")
+                    except Exception as e:
+                        logging.error(f"Error during email sending: {str(e)}")
+                        logging.info("Email functionality skipped - you can still view the analysis file")
                 else:
-                    error = email_result.get('error', 'Unknown error')
-                    logging.info(f"Email not sent: {error}")
-            else:
-                logging.info(f"Email not sent ({config.EMAIL_CONFIG_PATH} not found)")
-        except Exception as e:
-            logging.error(f"Error while sending email: {str(e)}")
+                    logging.info(f"Email not sent ({config.EMAIL_CONFIG_PATH} not found)")
+            except Exception as e:
+                logging.error(f"Error in email configuration: {str(e)}")
+                logging.info("Analysis completed but email functionality was skipped")
+        else:
+            logging.info("Email sending skipped (--skip-email flag used)")
 
 if __name__ == "__main__":
     main() 

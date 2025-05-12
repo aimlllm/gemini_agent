@@ -7,7 +7,14 @@ import logging
 
 class EarningsDocDownloader:
     def __init__(self, config_manager=None):
+        # Try to use the configured storage path, but fall back to local directory if needed
         self.storage_path = config.LOCAL_STORAGE_PATH
+        # Fallback: If the configured path is not writable, use a local directory
+        if not os.access(os.path.dirname(self.storage_path) or '.', os.W_OK):
+            logging.warning(f"Storage path {self.storage_path} is not writable")
+            self.storage_path = os.path.join(os.getcwd(), 'downloads')
+            logging.warning(f"Using local fallback: {self.storage_path}")
+            
         # Initialize config manager
         self.config_manager = config_manager or ConfigManager()
         # Browser-like user agent to avoid 403 errors
@@ -20,6 +27,17 @@ class EarningsDocDownloader:
             'Pragma': 'no-cache',
             'Cache-Control': 'no-cache',
         }
+    
+    def _create_directory_safely(self, directory):
+        """Safely create a directory, handling errors gracefully."""
+        if not os.path.exists(directory):
+            try:
+                os.makedirs(directory)
+                return True
+            except (OSError, PermissionError) as e:
+                logging.error(f"Could not create directory {directory}: {e}")
+                return False
+        return True
     
     def download_file(self, url, company, quarter, year, file_type):
         """
@@ -40,10 +58,10 @@ class EarningsDocDownloader:
             company_dir = os.path.join(self.storage_path, company.lower())
             period_dir = os.path.join(company_dir, f"{year}_{quarter}")
             
-            if not os.path.exists(company_dir):
-                os.makedirs(company_dir)
-            if not os.path.exists(period_dir):
-                os.makedirs(period_dir)
+            # Create directories safely
+            if not self._create_directory_safely(company_dir) or not self._create_directory_safely(period_dir):
+                logging.error(f"Could not create required directories for {url}")
+                return None
             
             # Get the filename from the URL or create one
             parsed_url = urlparse(url)
