@@ -63,8 +63,9 @@ def generate_email_markdown(result, config_manager=None):
         email_md += f"**Earnings Date:** {result['release_date']}  \n\n"
     
     # Add the content
-    if 'content' in result and result['content'] and not result['content'].startswith('Error:'):
-        email_md += result['content']
+    if 'content' in result and result['content']:
+        content = result['content']
+        email_md += content if not content.startswith('Error:') else f"**ERROR:** {content}"
     else:
         email_md += "No analysis available.\n"
     
@@ -169,7 +170,7 @@ def main():
         
         # Format the result
         result = {
-            'content': analysis,
+            'content': analysis['analysis'] if isinstance(analysis, dict) and 'analysis' in analysis else analysis,
             'ticker': company_info['ticker'],
             'company': company_info['name'],
             'quarter': download_result['quarter'],
@@ -185,7 +186,7 @@ def main():
         )
         os.makedirs(os.path.dirname(output_path), exist_ok=True)
         with open(output_path, 'w', encoding='utf-8') as f:
-            f.write(analysis)
+            f.write(result['content'])
         logging.info(f"Analysis saved to {output_path}")
         
         # Add ticker for email generation
@@ -216,25 +217,21 @@ def main():
         logging.info(f"\nAnalyzing {args.file_type} from custom URL...")
         
         # For custom URLs, analyze as a single document
-        analysis = analyzer.analyze_document(
-            file_path,
+        documents = {args.file_type: {'path': file_path, 'url': args.custom_url}}
+        analysis = analyzer.analyze_earnings_documents(
+            documents,
             "Custom Company",
             "Custom",
-            timestamp,
-            args.file_type
+            timestamp
         )
-        
-        # Add document information to analysis
-        analysis['document_type'] = args.file_type
-        analysis['document_url'] = args.custom_url
         
         # Format the result
         result = {
-            'content': analysis,
+            'content': analysis['analysis'] if isinstance(analysis, dict) and 'analysis' in analysis else analysis,
             'ticker': 'custom',
             'company': 'Custom Company',
             'quarter': 'Custom',
-            'year': 'Custom',
+            'year': timestamp,
             'documents': [file_path]
         }
         
@@ -245,7 +242,7 @@ def main():
         )
         os.makedirs(os.path.dirname(output_path), exist_ok=True)
         with open(output_path, 'w', encoding='utf-8') as f:
-            f.write(analysis)
+            f.write(result['content'])
         logging.info(f"Analysis saved to {output_path}")
     
     # Save analysis to output directory
