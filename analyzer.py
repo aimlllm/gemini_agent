@@ -129,6 +129,11 @@ class EarningsAnalyzer:
         # Prepare the prompt
         prompt = self._prepare_prompt(documents, company_name, quarter, year)
         
+        # Check if prompt is too large
+        if len(prompt) > 500000:
+            logging.warning(f"Prompt is very large ({len(prompt)} chars). Truncating to 500,000 chars to prevent issues.")
+            prompt = prompt[:500000] + "\n\n[Content truncated due to length]"
+            
         logging.info(f"Sending prompt to Gemini (length: {len(prompt)} chars)")
         
         try:
@@ -147,14 +152,76 @@ class EarningsAnalyzer:
             response = model.generate_content(prompt)
             
             # Extract text from response
-            if hasattr(response, 'text'):
+            if hasattr(response, 'text') and response.text:
                 analysis = response.text
                 logging.info(f"Received analysis from Gemini (length: {len(analysis)} chars)")
                 return analysis
             else:
-                logging.error("Unexpected response format from Gemini API")
-                return "Error: Unexpected response format from Gemini API."
+                logging.error("Received empty response from Gemini API. Retrying with shorter prompt...")
+                
+                # Try again with a shorter prompt
+                shorter_prompt = self._prepare_shortened_prompt(documents, company_name, quarter, year)
+                logging.info(f"Retrying with shorter prompt (length: {len(shorter_prompt)} chars)")
+                
+                response = model.generate_content(shorter_prompt)
+                
+                if hasattr(response, 'text') and response.text:
+                    analysis = response.text
+                    logging.info(f"Received analysis from Gemini on retry (length: {len(analysis)} chars)")
+                    return analysis
+                else:
+                    logging.error("Failed to generate analysis even with shortened prompt")
+                    return "Error: Gemini API failed to generate analysis. Please try again later."
             
         except Exception as e:
             logging.error(f"Error calling Gemini API: {e}")
-            return f"Error: Failed to analyze documents: {e}" 
+            return f"Error: Failed to analyze documents: {e}"
+    
+    def _prepare_shortened_prompt(self, documents, company_name, quarter, year):
+        """Prepare a shortened prompt with less document content."""
+        # Format the prompt template with company details
+        prompt = self.prompt_template.format(
+            company_name=company_name,
+            quarter=quarter,
+            year=year
+        )
+        
+        # Add a note about truncation
+        full_prompt = prompt + "\n\n## Document Content (Truncated):\n\n"
+        
+        # Add only portions of each document
+        for doc_type, content in documents.items():
+            full_prompt += f"### {doc_type.replace('_', ' ').title()}\n"
+            
+            # Handle dictionaries with path
+            if isinstance(content, dict) and 'path' in content:
+                file_path = content['path']
+                
+                if file_path.lower().endswith('.pdf'):
+                    # Extract only first few pages from PDF
+                    try:
+                        text = self._extract_text_from_pdf(file_path)
+                        # Take only first 50,000 characters
+                        text = text[:50000] + "... [content truncated]"
+                        full_prompt += text + "\n\n"
+                    except Exception as e:
+                        full_prompt += f"[Error extracting text: {e}]\n\n"
+                else:
+                    try:
+                        with open(file_path, 'r', encoding='utf-8', errors='replace') as file:
+                            text = file.read()
+                            # Take only first 50,000 characters
+                            text = text[:50000] + "... [content truncated]"
+                            full_prompt += text + "\n\n"
+                    except Exception as e:
+                        full_prompt += f"[Error reading file: {e}]\n\n"
+            else:
+                # Content is already a string, truncate it
+                text = str(content)
+                text = text[:50000] + "... [content truncated]"
+                full_prompt += text + "\n\n"
+        
+        # Add note about truncation
+        full_prompt += "\n\nNote: Document content has been truncated to ensure successful processing. Please focus on the most important insights from the available content."
+        
+        return full_prompt 
