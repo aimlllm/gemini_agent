@@ -312,18 +312,31 @@ gcloud compute scp credentials.json earnings-analysis-vm:~/earnings-analysis/
 
 2. Or create it directly on the VM (copy contents from your local file)
 
-### Step 5: Setup Email Authentication
+### Step 5: Setup Email Authentication on Headless VM
 
-When running on a VM without GUI, you need a slightly different OAuth flow:
+When running on a VM without a GUI (like a Google Cloud VM), you need to use SSH port forwarding to complete the OAuth flow:
 
-1. Install Google Cloud SDK on your local machine
-2. Run `gcloud auth login` to authenticate
-3. Generate OAuth tokens locally and then upload them to your VM
-4. Or use the `--no-browser` flag:
-```bash
-python send_email.py --reauth --no-browser
-```
-This will provide a URL to visit in your browser, where you'll complete authentication and get a verification code to enter in the terminal.
+1. Connect to your VM with port forwarding for the OAuth flow:
+   ```bash
+   gcloud compute ssh your-instance-name -- -L 8080:localhost:8080
+   ```
+
+2. Run the authentication command on the VM:
+   ```bash
+   python send_email.py --reauth
+   ```
+
+3. The script will display a URL (http://localhost:8080)
+   
+4. Open the URL in your local browser to complete authentication
+   - Your local browser connects to your forwarded port
+   - SSH tunnels this to the VM
+   - Complete the Google authentication
+   - The token will be saved on the VM
+
+5. Once authenticated, the VM can send emails without further interaction
+   - The authentication token is stored in `token.pickle`
+   - It will be refreshed automatically when needed
 
 ### Step 6: Set Up Scheduled Runs with Cloud Scheduler
 
@@ -533,40 +546,33 @@ Sample executive-friendly output structure:
 - Confirm the Sheet ID in your configuration is correct
 - Check that the sheet exists and hasn't been renamed or moved
 
-### Email Authentication Issues
+### Gmail Authentication on Headless VM
 
-#### "Request had insufficient authentication scopes"
+If you need to authenticate Gmail API on a VM without a browser:
 
-If you see this error, you need to force reauthentication:
+1. Use SSH port forwarding:
+   ```bash
+   gcloud compute ssh your-instance-name -- -L 8080:localhost:8080
+   ```
 
-```bash
-python send_email.py --reauth
-```
+2. Run the reauth command and follow the instructions:
+   ```bash
+   python send_email.py --reauth
+   ```
 
-This will delete the existing token and create a new one with the correct scopes.
+3. If port forwarding isn't working:
+   - Verify the VM's firewall allows port 8080
+   - Try a different port with: `gcloud compute ssh your-instance-name -- -L 9000:localhost:8080`
+   - Then manually open http://localhost:9000 in your browser
 
-#### "Credentials file not found"
-
-Check that:
-1. The path in your `.env` file is correct
-2. The credentials file exists at that location
-3. The file is a valid OAuth client ID JSON file from Google Cloud Console
-
-#### "Error during OAuth flow"
-
-If you encounter errors during the authentication process:
-1. Ensure your Google account has not revoked access to the application
-2. Check that you've completed all steps in the OAuth consent screen configuration
-3. Verify that you've added yourself as a test user in the OAuth consent screen
-
-#### Email Sending Fails
-
-Check that:
-1. Your internet connection is working
-2. The email configuration in Google Sheets is correct
-3. The Gmail API is enabled in your Google Cloud project
-4. You have granted the necessary permissions during the OAuth flow
-5. Your OAuth token hasn't expired (use `--force-reauth` if needed)
+4. If you still face issues, you can generate the token locally and upload:
+   ```bash
+   # On your local machine
+   python send_email.py --reauth
+   
+   # Upload token to VM
+   gcloud compute scp token.pickle your-instance-name:~/earnings-analysis/
+   ```
 
 ### GCP-Specific Issues
 
