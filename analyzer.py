@@ -1,15 +1,15 @@
-from google import generativeai as genai
+from google import genai
+from google.genai import types
 import config
 import os
 import logging
-import io
 import PyPDF2
 import binascii
 
 class EarningsAnalyzer:
     def __init__(self):
         # Initialize Gemini API client
-        genai.configure(api_key=config.GEMINI_API_KEY)
+        self.client = genai.Client(api_key=config.GEMINI_API_KEY)
         
         # Load prompt template
         self.prompt_template = self._load_prompt_template()
@@ -60,168 +60,182 @@ class EarningsAnalyzer:
             logging.error(f"Error extracting text from PDF {pdf_path}: {e}")
             return f"[Error extracting text from PDF: {e}]"
     
-    def _prepare_prompt(self, documents, company_name, quarter, year):
-        """Prepare the prompt with document content and company details."""
-        # Format the prompt template with company details
-        prompt = self.prompt_template.format(
-            company_name=company_name,
-            quarter=quarter,
-            year=year
-        )
-        
-        # Add document content to the prompt
-        full_prompt = prompt + "\n\n## Document Content:\n\n"
-        
-        for doc_type, content in documents.items():
-            full_prompt += f"### {doc_type.replace('_', ' ').title()}\n"
-            # Handle content that might be a dictionary with 'path' and 'url' keys
-            if isinstance(content, dict) and 'path' in content:
-                file_path = content['path']
-                if file_path.lower().endswith('.pdf'):
-                    # Extract text from PDF
-                    doc_content = self._extract_text_from_pdf(file_path)
-                    # Truncate if too long
-                    if len(doc_content) > 100000:
-                        doc_content = doc_content[:100000] + "... [content truncated]"
-                    full_prompt += doc_content + "\n\n"
-                else:
-                    try:
-                        with open(file_path, 'r', encoding='utf-8', errors='replace') as file:
-                            doc_content = file.read()
-                            full_prompt += doc_content + "\n\n"
-                    except Exception as e:
-                        logging.error(f"Error reading file {file_path}: {e}")
-                        full_prompt += f"[Error reading file: {e}]\n\n"
-            else:
-                # Content is already a string
-                full_prompt += str(content) + "\n\n"
-        
-        return full_prompt
-    
     def analyze_earnings_documents(self, documents, company_name, quarter, year):
         """
-        Analyze earnings documents for a company.
+        Analyze earnings documents (release and/or transcript) in a single Gemini API call.
         
         Args:
-            documents (dict): Dictionary with document types as keys and content as values
-            company_name (str): Company name
-            quarter (str): Quarter (e.g., 'Q1')
-            year (str): Year (e.g., '2023')
-            
+            documents (dict): Dictionary of document paths by type
+                             {'earnings_release': {'path': path1, 'url': url1},
+                              'call_transcript': {'path': path2, 'url': url2}}
+            company_name (str): Name of the company
+            quarter (str): Quarter (Q1, Q2, Q3, Q4)
+            year (str): Year
+        
         Returns:
-            str: Gemini analysis of the earnings documents
+            str: Analysis text
         """
-        logging.info(f"Analyzing {company_name} {quarter} {year} earnings documents")
-        
-        if not documents:
-            logging.error("No documents provided for analysis")
-            return "Error: No documents provided for analysis."
-        
-        # Check available documents
-        available_types = list(documents.keys())
-        logging.info(f"Available documents: {', '.join(available_types)}")
-        
-        if 'call_transcript' not in available_types:
-            logging.warning("Call transcript is not available. Analysis will be based only on earnings release.")
-        elif 'earnings_release' not in available_types:
-            logging.warning("Earnings release is not available. Analysis will be based only on call transcript.")
-        
-        # Prepare the prompt
-        prompt = self._prepare_prompt(documents, company_name, quarter, year)
-        
-        # Check if prompt is too large
-        if len(prompt) > 500000:
-            logging.warning(f"Prompt is very large ({len(prompt)} chars). Truncating to 500,000 chars to prevent issues.")
-            prompt = prompt[:500000] + "\n\n[Content truncated due to length]"
-            
-        logging.info(f"Sending prompt to Gemini (length: {len(prompt)} chars)")
-        
         try:
-            # Use a simple and reliable approach to call Gemini API with version 0.7.2
-            model = genai.GenerativeModel(
-                model_name="gemini-2.5-pro-preview-05-06",
-                generation_config={
-                    "temperature": 0.2,
-                    "top_p": 0.95,
-                    "top_k": 64,
-                    "max_output_tokens": 4096,
-                }
+            # Check if we have any documents
+            if not documents:
+                logging.error("No documents provided for analysis")
+                return "Error: No documents provided for analysis."
+            
+            # Check available documents
+            available_types = list(documents.keys())
+            logging.info(f"Available documents: {', '.join(available_types)}")
+            
+            if 'call_transcript' not in available_types:
+                logging.warning("Call transcript is not available. Analysis will be based only on earnings release.")
+            elif 'earnings_release' not in available_types:
+                logging.warning("Earnings release is not available. Analysis will be based only on call transcript.")
+            
+            # Initialize Gemini model
+            model = "gemini-2.5-pro-preview-05-06"
+            
+            # Read each document and add it to the input
+            parts = []
+            
+            # Add each document to the parts
+            for doc_type, doc_info in documents.items():
+                file_path = doc_info['path']
+                
+                # Check if file exists
+                if not os.path.exists(file_path):
+                    logging.warning(f"File not found: {file_path}. Skipping.")
+                    continue
+                
+                # Determine file MIME type
+                mime_type = self._get_mime_type(file_path)
+                
+                # Label what type of document this is
+                doc_label = "earnings release" if doc_type == "earnings_release" else "earnings call transcript"
+                parts.append(types.Part(text=f"\nDOCUMENT TYPE: {doc_label.upper()}\n"))
+                
+                # Read the file as binary
+                try:
+                    with open(file_path, 'rb') as f:
+                        file_data = f.read()
+                    
+                    # If file is too large (over 1MB), extract text and use that instead
+                    if len(file_data) > 1000000:
+                        logging.warning(f"File {file_path} is very large ({len(file_data)} bytes). Extracting text instead of using binary content.")
+                        if file_path.lower().endswith('.pdf'):
+                            text_content = self._extract_text_from_pdf(file_path)
+                        else:
+                            # For non-PDF files, try to read as text
+                            with open(file_path, 'r', encoding='utf-8', errors='replace') as text_file:
+                                text_content = text_file.read()
+                        
+                        # Truncate if still too large
+                        if len(text_content) > 500000:
+                            text_content = text_content[:500000] + "\n\n[Content truncated due to length...]"
+                        
+                        parts.append(types.Part(text=text_content))
+                    else:
+                        # Use binary content for smaller files
+                        parts.append(
+                            types.Part(
+                                inline_data=types.Blob(
+                                    mime_type=mime_type,
+                                    data=file_data
+                                )
+                            )
+                        )
+                    logging.info(f"Successfully loaded {doc_label}: {os.path.basename(file_path)}")
+                except Exception as e:
+                    logging.error(f"Error reading {file_path}: {str(e)}")
+            
+            # Add the consolidated analysis prompt from template
+            prompt = self.prompt_template.format(
+                company_name=company_name,
+                quarter=quarter,
+                year=year
             )
+            parts.append(types.Part(text=prompt))
             
-            # Make the API call
-            response = model.generate_content(prompt)
+            # Create content with all documents and prompt
+            content = types.Content(parts=parts)
             
-            # Extract text from response
-            if hasattr(response, 'text') and response.text:
-                analysis = response.text
-                logging.info(f"Received analysis from Gemini (length: {len(analysis)} chars)")
-                return analysis
-            else:
-                logging.error("Received empty response from Gemini API. Retrying with shorter prompt...")
+            # Generate content with a single API call
+            logging.info(f"Sending prompt to Gemini (length: {sum(len(str(p)) for p in parts)} chars)")
+            
+            try:
+                response = self.client.models.generate_content(
+                    model=model,
+                    contents=content
+                )
                 
-                # Try again with a shorter prompt
-                shorter_prompt = self._prepare_shortened_prompt(documents, company_name, quarter, year)
-                logging.info(f"Retrying with shorter prompt (length: {len(shorter_prompt)} chars)")
+                if not response or not hasattr(response, 'text') or not response.text:
+                    logging.error("Received empty response from Gemini API. Retrying with simplified content...")
+                    
+                    # Simplify the request - use text extraction for all documents
+                    simplified_parts = [types.Part(text=f"\nANALYSIS REQUEST FOR {company_name}'s {quarter} {year} EARNINGS\n\n")]
+                    
+                    for doc_type, doc_info in documents.items():
+                        file_path = doc_info['path']
+                        if not os.path.exists(file_path):
+                            continue
+                            
+                        doc_label = "EARNINGS RELEASE" if doc_type == "earnings_release" else "EARNINGS CALL TRANSCRIPT"
+                        simplified_parts.append(types.Part(text=f"\n{doc_label}:\n"))
+                        
+                        try:
+                            if file_path.lower().endswith('.pdf'):
+                                text_content = self._extract_text_from_pdf(file_path)
+                            else:
+                                with open(file_path, 'r', encoding='utf-8', errors='replace') as text_file:
+                                    text_content = text_file.read()
+                            
+                            # Truncate content to ensure it's not too large
+                            if len(text_content) > 100000:
+                                text_content = text_content[:100000] + "\n\n[Content truncated...]"
+                                
+                            simplified_parts.append(types.Part(text=text_content))
+                        except Exception as e:
+                            logging.error(f"Error extracting text from {file_path} on retry: {str(e)}")
+                    
+                    # Add prompt again
+                    simplified_parts.append(types.Part(text=prompt))
+                    
+                    # Create new content
+                    simplified_content = types.Content(parts=simplified_parts)
+                    
+                    # Try again with simplified content
+                    logging.info("Retrying with simplified content...")
+                    response = self.client.models.generate_content(
+                        model=model,
+                        contents=simplified_content
+                    )
                 
-                response = model.generate_content(shorter_prompt)
-                
+                # Extract text from response
                 if hasattr(response, 'text') and response.text:
                     analysis = response.text
-                    logging.info(f"Received analysis from Gemini on retry (length: {len(analysis)} chars)")
+                    logging.info(f"Received analysis from Gemini (length: {len(analysis)} chars)")
                     return analysis
                 else:
-                    logging.error("Failed to generate analysis even with shortened prompt")
+                    logging.error("Failed to generate analysis even with simplified content")
                     return "Error: Gemini API failed to generate analysis. Please try again later."
+                
+            except Exception as e:
+                logging.error(f"Error in Gemini API call: {str(e)}")
+                return f"Error: Failed to analyze documents: {str(e)}"
             
         except Exception as e:
-            logging.error(f"Error calling Gemini API: {e}")
-            return f"Error: Failed to analyze documents: {e}"
+            logging.error(f"Error creating analysis: {str(e)}")
+            return f"Error: {str(e)}"
     
-    def _prepare_shortened_prompt(self, documents, company_name, quarter, year):
-        """Prepare a shortened prompt with less document content."""
-        # Format the prompt template with company details
-        prompt = self.prompt_template.format(
-            company_name=company_name,
-            quarter=quarter,
-            year=year
-        )
-        
-        # Add a note about truncation
-        full_prompt = prompt + "\n\n## Document Content (Truncated):\n\n"
-        
-        # Add only portions of each document
-        for doc_type, content in documents.items():
-            full_prompt += f"### {doc_type.replace('_', ' ').title()}\n"
-            
-            # Handle dictionaries with path
-            if isinstance(content, dict) and 'path' in content:
-                file_path = content['path']
-                
-                if file_path.lower().endswith('.pdf'):
-                    # Extract only first few pages from PDF
-                    try:
-                        text = self._extract_text_from_pdf(file_path)
-                        # Take only first 50,000 characters
-                        text = text[:50000] + "... [content truncated]"
-                        full_prompt += text + "\n\n"
-                    except Exception as e:
-                        full_prompt += f"[Error extracting text: {e}]\n\n"
-                else:
-                    try:
-                        with open(file_path, 'r', encoding='utf-8', errors='replace') as file:
-                            text = file.read()
-                            # Take only first 50,000 characters
-                            text = text[:50000] + "... [content truncated]"
-                            full_prompt += text + "\n\n"
-                    except Exception as e:
-                        full_prompt += f"[Error reading file: {e}]\n\n"
-            else:
-                # Content is already a string, truncate it
-                text = str(content)
-                text = text[:50000] + "... [content truncated]"
-                full_prompt += text + "\n\n"
-        
-        # Add note about truncation
-        full_prompt += "\n\nNote: Document content has been truncated to ensure successful processing. Please focus on the most important insights from the available content."
-        
-        return full_prompt 
+    def _get_mime_type(self, file_path):
+        """Determine MIME type based on file extension"""
+        ext = os.path.splitext(file_path)[1].lower()
+        if ext == '.pdf':
+            return 'application/pdf'
+        elif ext in ['.txt', '.md']:
+            return 'text/plain'
+        elif ext == '.html':
+            return 'text/html'
+        elif ext in ['.docx', '.doc']:
+            return 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+        else:
+            # Default to text
+            return 'text/plain' 
