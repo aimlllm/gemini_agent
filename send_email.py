@@ -132,7 +132,15 @@ def send_email_for_report(report_path, force_reauth=False):
         return False
 
 def force_reauth():
-    """Force reauthentication with Gmail API."""
+    """
+    Force reauthentication with Gmail API.
+    
+    When running on a headless server (like a Google Cloud VM), you should:
+    1. SSH into the VM with port forwarding: 
+       `gcloud compute ssh <instance-name> -- -L 8080:localhost:8080`
+    2. Run this function with `python send_email.py --reauth`
+    3. Open the displayed URL in your local browser to complete authentication
+    """
     email_service = EmailService()
     
     if email_service.authenticate(force_refresh=True):

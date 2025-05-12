@@ -138,7 +138,12 @@ class EmailService:
                 try:
                     flow = InstalledAppFlow.from_client_secrets_file(
                         self.credentials_path, self.scopes)
-                    self.creds = flow.run_local_server(port=0)
+                    
+                    # Use fixed port 8080 instead of random port (port=0)
+                    # This way, the port can be forwarded via SSH
+                    logging.info("Please authenticate in your browser at: http://localhost:8080")
+                    logging.info("If using SSH port forwarding, the browser should open on your local machine")
+                    self.creds = flow.run_local_server(port=8080, open_browser=False)
                     
                     # Save the credentials for the next run
                     with open(self.token_path, 'wb') as token:
