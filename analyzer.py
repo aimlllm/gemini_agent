@@ -3,8 +3,6 @@ from google.genai import types
 import config
 import os
 import logging
-import PyPDF2
-import binascii
 
 class EarningsAnalyzer:
     def __init__(self):
@@ -44,21 +42,6 @@ class EarningsAnalyzer:
             
             Format as clean, professional markdown suitable for immediate email distribution.
             """
-    
-    def _extract_text_from_pdf(self, pdf_path):
-        """Extract text from a PDF file."""
-        try:
-            with open(pdf_path, 'rb') as file:
-                pdf_reader = PyPDF2.PdfReader(file)
-                text = ""
-                # Extract text from each page
-                for page_num in range(len(pdf_reader.pages)):
-                    page = pdf_reader.pages[page_num]
-                    text += page.extract_text() + "\n\n"
-                return text
-        except Exception as e:
-            logging.error(f"Error extracting text from PDF {pdf_path}: {e}")
-            return f"[Error extracting text from PDF: {e}]"
     
     def analyze_earnings_documents(self, documents, company_name, quarter, year):
         """
@@ -112,36 +95,20 @@ class EarningsAnalyzer:
                 doc_label = "earnings release" if doc_type == "earnings_release" else "earnings call transcript"
                 parts.append(types.Part(text=f"\nDOCUMENT TYPE: {doc_label.upper()}\n"))
                 
-                # Read the file as binary
+                # Read the file as binary and send directly to Gemini
                 try:
                     with open(file_path, 'rb') as f:
                         file_data = f.read()
                     
-                    # If file is too large (over 1MB), extract text and use that instead
-                    if len(file_data) > 1000000:
-                        logging.warning(f"File {file_path} is very large ({len(file_data)} bytes). Extracting text instead of using binary content.")
-                        if file_path.lower().endswith('.pdf'):
-                            text_content = self._extract_text_from_pdf(file_path)
-                        else:
-                            # For non-PDF files, try to read as text
-                            with open(file_path, 'r', encoding='utf-8', errors='replace') as text_file:
-                                text_content = text_file.read()
-                        
-                        # Truncate if still too large
-                        if len(text_content) > 500000:
-                            text_content = text_content[:500000] + "\n\n[Content truncated due to length...]"
-                        
-                        parts.append(types.Part(text=text_content))
-                    else:
-                        # Use binary content for smaller files
-                        parts.append(
-                            types.Part(
-                                inline_data=types.Blob(
-                                    mime_type=mime_type,
-                                    data=file_data
-                                )
+                    # Send binary content directly to Gemini
+                    parts.append(
+                        types.Part(
+                            inline_data=types.Blob(
+                                mime_type=mime_type,
+                                data=file_data
                             )
                         )
+                    )
                     logging.info(f"Successfully loaded {doc_label}: {os.path.basename(file_path)}")
                 except Exception as e:
                     logging.error(f"Error reading {file_path}: {str(e)}")
@@ -167,55 +134,13 @@ class EarningsAnalyzer:
                 )
                 
                 if not response or not hasattr(response, 'text') or not response.text:
-                    logging.error("Received empty response from Gemini API. Retrying with simplified content...")
-                    
-                    # Simplify the request - use text extraction for all documents
-                    simplified_parts = [types.Part(text=f"\nANALYSIS REQUEST FOR {company_name}'s {quarter} {year} EARNINGS\n\n")]
-                    
-                    for doc_type, doc_info in documents.items():
-                        file_path = doc_info['path']
-                        if not os.path.exists(file_path):
-                            continue
-                            
-                        doc_label = "EARNINGS RELEASE" if doc_type == "earnings_release" else "EARNINGS CALL TRANSCRIPT"
-                        simplified_parts.append(types.Part(text=f"\n{doc_label}:\n"))
-                        
-                        try:
-                            if file_path.lower().endswith('.pdf'):
-                                text_content = self._extract_text_from_pdf(file_path)
-                            else:
-                                with open(file_path, 'r', encoding='utf-8', errors='replace') as text_file:
-                                    text_content = text_file.read()
-                            
-                            # Truncate content to ensure it's not too large
-                            if len(text_content) > 100000:
-                                text_content = text_content[:100000] + "\n\n[Content truncated...]"
-                                
-                            simplified_parts.append(types.Part(text=text_content))
-                        except Exception as e:
-                            logging.error(f"Error extracting text from {file_path} on retry: {str(e)}")
-                    
-                    # Add prompt again
-                    simplified_parts.append(types.Part(text=prompt))
-                    
-                    # Create new content
-                    simplified_content = types.Content(parts=simplified_parts)
-                    
-                    # Try again with simplified content
-                    logging.info("Retrying with simplified content...")
-                    response = self.client.models.generate_content(
-                        model=model,
-                        contents=simplified_content
-                    )
+                    logging.error("Received empty response from Gemini API")
+                    return "Error: Gemini API returned an empty response. Please try again with smaller documents or fewer documents."
                 
                 # Extract text from response
-                if hasattr(response, 'text') and response.text:
-                    analysis = response.text
-                    logging.info(f"Received analysis from Gemini (length: {len(analysis)} chars)")
-                    return analysis
-                else:
-                    logging.error("Failed to generate analysis even with simplified content")
-                    return "Error: Gemini API failed to generate analysis. Please try again later."
+                analysis = response.text
+                logging.info(f"Received analysis from Gemini (length: {len(analysis)} chars)")
+                return analysis
                 
             except Exception as e:
                 logging.error(f"Error in Gemini API call: {str(e)}")
