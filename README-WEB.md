@@ -27,6 +27,56 @@ python app.py
 
 The server will start on http://localhost:8080 by default.
 
+## Deployment Options
+
+### Local Development
+
+For local development or quick testing, you can run the app directly:
+
+```bash
+python app.py
+```
+
+Or use the included script:
+
+```bash
+./run_web.sh
+```
+
+### Cloud Deployment (Google Cloud VM)
+
+For running on a cloud VM as a persistent service:
+
+1. Use our automatic setup script:
+
+```bash
+./setup_cloud_service.sh
+```
+
+This will:
+- Detect your virtual environment
+- Set up a systemd service
+- Configure auto-restart and boot startup
+- Show you how to manage the application
+
+2. After setup, manage the service using:
+
+```bash
+# Start the application
+sudo systemctl start gemini-web
+
+# Stop the application
+sudo systemctl stop gemini-web
+
+# Restart after code changes
+sudo systemctl restart gemini-web
+
+# Check if it's running
+sudo systemctl status gemini-web
+```
+
+For detailed instructions, see [README-CLOUD-SETUP.md](README-CLOUD-SETUP.md).
+
 ## Usage
 
 ### Running Analyses
