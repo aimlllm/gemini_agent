@@ -1,5 +1,5 @@
 #!/bin/bash
-# Setup script for Gemini Earnings Analyzer web interface
+# Setup script for Partner S&O Earnings Reader web interface
 # This will set up a systemd service to run the application
 
 # Text formatting
@@ -9,7 +9,7 @@ YELLOW='\033[0;33m'
 RED='\033[0;31m'
 NC='\033[0m' # No Color
 
-echo -e "${BOLD}Gemini Earnings Analyzer - Cloud Setup${NC}"
+echo -e "${BOLD}Partner S&O Earnings Reader - Cloud Setup${NC}"
 echo "This script will set up your application to run as a system service."
 echo
 
@@ -55,7 +55,7 @@ read -p "Enter your Gemini API key (leave blank if set elsewhere): " API_KEY
 
 # Create the service file content
 SERVICE_CONTENT="[Unit]
-Description=Gemini Earnings Analyzer Web Interface
+Description=Partner S&O Earnings Reader Web Interface
 After=network.target
 
 [Service]

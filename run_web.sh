@@ -5,7 +5,7 @@
 # Set default port
 PORT=${PORT:-8080}
 
-echo "=== Gemini Earnings Analyzer Web Interface ==="
+echo "=== Partner S&O Earnings Reader Web Interface ==="
 echo "Starting web server on port $PORT..."
 
 # Run Flask application

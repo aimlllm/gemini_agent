@@ -1,6 +1,6 @@
-# Gemini Earnings Analyzer Web Interface
+# Partner S&O Earnings Reader Web Interface
 
-This web interface provides a user-friendly way to manage your Gemini Earnings Analysis system.
+This web interface provides a user-friendly way to manage your Partner S&O Earnings Reader system.
 
 ## Features
 

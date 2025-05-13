@@ -1,6 +1,6 @@
-# Running the Gemini Earnings Analyzer on Google Cloud
+# Running the Partner S&O Earnings Reader on Google Cloud
 
-This guide explains how to set up and manage the Gemini Earnings Analyzer web interface on a Google Cloud VM instance. These instructions are designed for users who are not software engineers.
+This guide explains how to set up and manage the Partner S&O Earnings Reader web interface on a Google Cloud VM instance. These instructions are designed for users who are not software engineers.
 
 ## Initial Setup (One-time Setup)
 
@@ -16,7 +16,7 @@ This guide explains how to set up and manage the Gemini Earnings Analyzer web in
 3. Copy and paste the following text (replace parts in UPPERCASE with your actual values):
    ```
    [Unit]
-   Description=Gemini Earnings Analyzer Web Interface
+   Description=Partner S&O Earnings Reader Web Interface
    After=network.target
 
    [Service]
@@ -79,7 +79,7 @@ sudo systemctl status gemini-web
 
 You should see something like:
 ```
-● gemini-web.service - Gemini Earnings Analyzer Web Interface
+● gemini-web.service - Partner S&O Earnings Reader Web Interface
      Loaded: loaded (/etc/systemd/system/gemini-web.service; enabled; vendor preset: enabled)
      Active: active (running) since Mon 2023-07-10 15:30:45 UTC; 2h 5min ago
 ```
@@ -133,7 +133,7 @@ Print this section for easy reference:
 
 ```
 ┌─────────────────────────────────────────────────┐
-│ Gemini Earnings Analyzer - Quick Commands       │
+│ Partner S&O Earnings Reader - Quick Commands    │
 ├─────────────────────────────────────────────────┤
 │ Start application:   sudo systemctl start gemini-web   │
 │ Stop application:    sudo systemctl stop gemini-web    │
