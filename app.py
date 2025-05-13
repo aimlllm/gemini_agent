@@ -35,13 +35,34 @@ def index():
 
 @app.route('/run-analysis', methods=['POST'])
 def run_analysis():
-    """Run analysis for a specific company"""
+    """Run analysis for one or multiple companies"""
+    # Handle both single and multi-company selection
     ticker = request.form.get('ticker')
+    tickers = request.form.getlist('tickers')
+    batch_process = request.form.get('batch_process') == 'on'
     
-    if not ticker:
-        flash("Please select a company ticker", "error")
+    # Check if we have any companies selected
+    if not ticker and not tickers:
+        flash("Please select at least one company", "error")
         return redirect(url_for('index'))
     
+    # If single company mode
+    if ticker and not tickers:
+        return process_single_company(ticker)
+    
+    # If multi-company mode
+    if tickers:
+        if batch_process:
+            return process_multiple_companies_batch(tickers)
+        else:
+            return process_multiple_companies_comparative(tickers)
+    
+    # Fallback
+    flash("Invalid selection", "error")
+    return redirect(url_for('index'))
+
+def process_single_company(ticker):
+    """Process a single company analysis"""
     try:
         company_info = config_manager.get_company(ticker)
         if not company_info:
@@ -80,10 +101,212 @@ def run_analysis():
         session['last_analysis'] = output_path
         
         return redirect(url_for('view_analysis', filename=output_filename))
-        
+    
     except Exception as e:
         logging.error(f"Error running analysis: {str(e)}")
         flash(f"Error running analysis: {str(e)}", "error")
+        return redirect(url_for('index'))
+
+def process_multiple_companies_batch(tickers):
+    """Process multiple companies as separate analyses"""
+    if not tickers:
+        flash("No companies selected", "error")
+        return redirect(url_for('index'))
+    
+    analysis_files = []
+    error_companies = []
+    successful_companies = []
+    start_time = datetime.now()
+    
+    for ticker in tickers:
+        try:
+            company_info = config_manager.get_company(ticker)
+            if not company_info:
+                error_companies.append(f"{ticker} (not found)")
+                continue
+            
+            year, quarter, release_data = config_manager.get_latest_release(ticker)
+            if not release_data:
+                error_companies.append(f"{ticker} (no release data)")
+                continue
+            
+            # Download documents
+            download_result = downloader.download_latest_earnings(ticker)
+            
+            if not download_result or not download_result['files']:
+                error_companies.append(f"{ticker} (no documents)")
+                continue
+            
+            # Analyze documents
+            analysis = analyzer.analyze_earnings_documents(
+                download_result['files'], 
+                company_info['name'], 
+                download_result['quarter'], 
+                download_result['year']
+            )
+            
+            # Save analysis
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            output_filename = f"{ticker}_{download_result['year']}_{download_result['quarter']}_{timestamp}.md"
+            output_path = os.path.join(config.RESULTS_DIR, output_filename)
+            
+            with open(output_path, 'w', encoding='utf-8') as f:
+                f.write(analysis['analysis'] if isinstance(analysis, dict) and 'analysis' in analysis else str(analysis))
+            
+            analysis_files.append(output_filename)
+            successful_companies.append(company_info['name'])
+            logging.info(f"Successfully analyzed {company_info['name']} ({ticker})")
+        
+        except Exception as e:
+            logging.error(f"Error analyzing {ticker}: {str(e)}")
+            error_companies.append(f"{ticker} (error: {str(e)[:50]}...)")
+    
+    # Calculate total processing time
+    end_time = datetime.now()
+    processing_time = (end_time - start_time).total_seconds()
+    
+    # Report results
+    if analysis_files:
+        if len(analysis_files) == 1:
+            flash(f"Successfully analyzed {successful_companies[0]} in {processing_time:.1f} seconds", "success")
+            return redirect(url_for('view_analysis', filename=analysis_files[0]))
+        else:
+            flash(f"Successfully analyzed {len(analysis_files)} companies in {processing_time:.1f} seconds: {', '.join(successful_companies)}", "success")
+            if error_companies:
+                flash(f"Failed to analyze {len(error_companies)} companies: {', '.join(error_companies)}", "warning")
+            return redirect(url_for('analyses'))
+    else:
+        flash(f"Failed to analyze any companies: {', '.join(error_companies)}", "error")
+        return redirect(url_for('index'))
+
+def process_multiple_companies_comparative(tickers):
+    """Process multiple companies as a single comparative analysis"""
+    if not tickers:
+        flash("No companies selected", "error")
+        return redirect(url_for('index'))
+    
+    try:
+        # Collect all company info and documents
+        companies_data = []
+        company_names = []
+        failed_companies = []
+        
+        for ticker in tickers:
+            try:
+                company_info = config_manager.get_company(ticker)
+                if not company_info:
+                    failed_companies.append(f"{ticker} (company not found)")
+                    continue
+                    
+                year, quarter, release_data = config_manager.get_latest_release(ticker)
+                if not release_data:
+                    failed_companies.append(f"{ticker} (no release data)")
+                    continue
+                    
+                # Download documents
+                download_result = downloader.download_latest_earnings(ticker)
+                
+                if not download_result or not download_result['files']:
+                    failed_companies.append(f"{ticker} (no documents available)")
+                    continue
+                    
+                companies_data.append({
+                    'ticker': ticker,
+                    'name': company_info['name'],
+                    'files': download_result['files'],
+                    'quarter': download_result['quarter'],
+                    'year': download_result['year']
+                })
+                company_names.append(company_info['name'])
+            except Exception as e:
+                logging.error(f"Error processing company {ticker}: {str(e)}")
+                failed_companies.append(f"{ticker} (error: {str(e)[:50]}...)")
+        
+        if not companies_data:
+            if failed_companies:
+                flash(f"Failed to process any companies: {', '.join(failed_companies)}", "error")
+            else:
+                flash("No valid companies found to analyze", "error")
+            return redirect(url_for('index'))
+        
+        # Report partial failures but continue with available companies
+        if failed_companies:
+            flash(f"Some companies couldn't be processed: {', '.join(failed_companies)}", "warning")
+            
+        if len(companies_data) == 1:
+            # If only one company is valid, switch to single company mode
+            single_company = companies_data[0]
+            flash(f"Only one company ({single_company['name']}) is available for analysis. Running single company analysis.", "warning")
+            
+            # Analyze documents for the single company
+            analysis = analyzer.analyze_earnings_documents(
+                single_company['files'], 
+                single_company['name'], 
+                single_company['quarter'], 
+                single_company['year']
+            )
+            
+            # Save analysis
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            output_filename = f"{single_company['ticker']}_{single_company['year']}_{single_company['quarter']}_{timestamp}.md"
+            output_path = os.path.join(config.RESULTS_DIR, output_filename)
+            
+            with open(output_path, 'w', encoding='utf-8') as f:
+                f.write(analysis['analysis'] if isinstance(analysis, dict) and 'analysis' in analysis else str(analysis))
+            
+            session['last_analysis'] = output_path
+            return redirect(url_for('view_analysis', filename=output_filename))
+            
+        # Combine document sets for analysis
+        combined_files = {}
+        for company_data in companies_data:
+            for file_type, file_path in company_data['files'].items():
+                combined_key = f"{company_data['ticker']}_{file_type}"
+                combined_files[combined_key] = file_path
+        
+        # Create a combined analysis name
+        company_name_str = " vs. ".join(company_names)
+        if len(company_name_str) > 100:  # Truncate if too long
+            company_name_str = company_name_str[:97] + "..."
+        
+        # Use the quarter/year from the first company as reference
+        reference_quarter = companies_data[0]['quarter']
+        reference_year = companies_data[0]['year']
+        
+        # Let user know we're processing multiple companies
+        logging.info(f"Running comparative analysis of {len(companies_data)} companies: {', '.join(company_names)}")
+        
+        # Analyze documents
+        analysis = analyzer.analyze_earnings_documents(
+            combined_files,
+            company_name_str,
+            reference_quarter,
+            reference_year,
+            is_comparative=True,
+            companies=companies_data
+        )
+        
+        # Save analysis
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        tickers_str = "_".join([c['ticker'] for c in companies_data])
+        if len(tickers_str) > 50:  # Truncate if too long
+            tickers_str = tickers_str[:47] + "..."
+        
+        output_filename = f"COMPARATIVE_{tickers_str}_{reference_year}_{reference_quarter}_{timestamp}.md"
+        output_path = os.path.join(config.RESULTS_DIR, output_filename)
+        
+        with open(output_path, 'w', encoding='utf-8') as f:
+            f.write(analysis['analysis'] if isinstance(analysis, dict) and 'analysis' in analysis else str(analysis))
+        
+        companies_count = len(companies_data)
+        flash(f"Comparative analysis of {companies_count} companies has been completed and saved", "success")
+        session['last_analysis'] = output_path
+        
+        return redirect(url_for('view_analysis', filename=output_filename))
+    
+    except Exception as e:
+        logging.error(f"Error running comparative analysis: {str(e)}")
+        flash(f"Error running comparative analysis: {str(e)}", "error")
         return redirect(url_for('index'))
 
 def render_markdown(content):
@@ -144,8 +367,14 @@ def send_email():
     
     try:
         file_path = os.path.join(config.RESULTS_DIR, filename)
+        
+        # Use sys.executable to get the current Python interpreter path
+        import sys
+        python_executable = sys.executable
+        
+        # Use the full path to the Python interpreter
         result = subprocess.run(
-            ['python', 'send_email.py', '--file', file_path],
+            [python_executable, 'send_email.py', '--file', file_path],
             capture_output=True, 
             text=True
         )
@@ -153,11 +382,14 @@ def send_email():
         if result.returncode == 0:
             flash("Email sent successfully", "success")
         else:
-            flash(f"Error sending email: {result.stderr}", "error")
+            error_message = result.stderr.strip() or "Unknown error"
+            logging.error(f"Email sending failed: {error_message}")
+            flash(f"Error sending email: {error_message}", "error")
         
         return redirect(url_for('analyses'))
     
     except Exception as e:
+        logging.error(f"Error sending email: {str(e)}")
         flash(f"Error sending email: {str(e)}", "error")
         return redirect(url_for('analyses'))
 

@@ -5,6 +5,9 @@ This web interface provides a user-friendly way to manage your Partner S&O Earni
 ## Features
 
 - **Dashboard**: Run analyses for companies configured in your system
+  - Single company analysis
+  - Multi-company comparative analysis
+  - Batch processing of multiple companies
 - **Analysis Management**: View, manage, and send analysis results via email
 - **Configuration Editor**: Easily edit your configuration files:
   - Company configuration (earnings releases, document URLs)
@@ -81,9 +84,19 @@ For detailed instructions, see [README-CLOUD-SETUP.md](README-CLOUD-SETUP.md).
 
 ### Running Analyses
 
+#### Single Company Analysis
 1. From the dashboard, select a company from the dropdown
 2. Click "Run Analysis" to download the latest earnings documents and analyze them
 3. The analysis will be saved and you'll be redirected to view the results
+
+#### Multi-Company Analysis
+1. Toggle the "Multi-select" switch in the Run Analysis card
+2. Select two or more companies using the checkboxes
+3. Choose one of these analysis modes:
+   - **Comparative Analysis**: Creates a single report comparing all selected companies (default)
+   - **Batch Processing**: Analyzes each company separately, creating multiple reports
+
+The system will process the companies and redirect you to view the results.
 
 ### Viewing Previous Analyses
 

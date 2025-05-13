@@ -9,29 +9,60 @@
     <div class="row">
         <div class="col-md-6">
             <div class="card">
-                <div class="card-header bg-primary text-white">
-                    <h5 class="card-title mb-0">Run New Analysis</h5>
+                <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+                    <h5 class="card-title mb-0">Run Analysis</h5>
+                    <div class="form-check form-switch">
+                        <input class="form-check-input" type="checkbox" id="multiSelectToggle">
+                        <label class="form-check-label text-white" for="multiSelectToggle">Multi-select</label>
+                    </div>
                 </div>
                 <div class="card-body">
-                    <form action="{{ url_for('run_analysis') }}" method="post">
-                        <div class="mb-3">
+                    <form action="{{ url_for('run_analysis') }}" method="post" id="analysisForm">
+                        <div class="mb-3" id="singleSelectContainer">
                             <label for="ticker" class="form-label">Select Company:</label>
-                            <select class="form-select" id="ticker" name="ticker" required>
+                            <select class="form-select" id="ticker" name="ticker">
                                 <option value="">-- Select a company --</option>
                                 {% for ticker, info in companies.items() %}
                                 <option value="{{ ticker }}">{{ info.name }} ({{ ticker.upper() }})</option>
                                 {% endfor %}
                             </select>
                         </div>
+
+                        <div class="mb-3" id="multiSelectContainer" style="display: none;">
+                            <label for="tickers" class="form-label">Select Companies:</label>
+                            <div class="mb-2">
+                                <button type="button" class="btn btn-sm btn-outline-secondary" id="selectAllBtn">Select All</button>
+                                <button type="button" class="btn btn-sm btn-outline-secondary" id="deselectAllBtn">Deselect All</button>
+                            </div>
+                            <div class="border p-3 rounded" style="max-height: 300px; overflow-y: auto;">
+                                {% for ticker, info in companies.items() %}
+                                <div class="form-check">
+                                    <input class="form-check-input company-checkbox" type="checkbox" value="{{ ticker }}" id="company-{{ ticker }}" name="tickers">
+                                    <label class="form-check-label" for="company-{{ ticker }}">
+                                        {{ info.name }} ({{ ticker.upper() }})
+                                    </label>
+                                </div>
+                                {% endfor %}
+                            </div>
+                        </div>
                         
-                        <button type="submit" class="btn btn-primary">
+                        <div class="mb-3">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" id="batchProcess" name="batch_process">
+                                <label class="form-check-label" for="batchProcess">
+                                    Process as batch (create one analysis per company)
+                                </label>
+                            </div>
+                        </div>
+                        
+                        <button type="submit" class="btn btn-primary" id="runAnalysisBtn">
                             <span class="spinner-border spinner-border-sm d-none" role="status" aria-hidden="true" id="analysisSpinner"></span>
                             Run Analysis
                         </button>
                     </form>
                 </div>
                 <div class="card-footer">
-                    <small class="text-muted">This will download the latest earnings documents and generate an analysis using Gemini API</small>
+                    <small class="text-muted" id="analysisDescription">Select a company to analyze its latest earnings documents</small>
                 </div>
             </div>
         </div>
@@ -82,14 +113,113 @@
 {% block scripts %}
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    const form = document.querySelector('form[action="{{ url_for("run_analysis") }}"]');
+    const form = document.getElementById('analysisForm');
     const spinner = document.getElementById('analysisSpinner');
+    const multiSelectToggle = document.getElementById('multiSelectToggle');
+    const singleSelectContainer = document.getElementById('singleSelectContainer');
+    const multiSelectContainer = document.getElementById('multiSelectContainer');
+    const singleSelect = document.getElementById('ticker');
+    const companyCheckboxes = document.querySelectorAll('.company-checkbox');
+    const selectAllBtn = document.getElementById('selectAllBtn');
+    const deselectAllBtn = document.getElementById('deselectAllBtn');
+    const batchProcessCheckbox = document.getElementById('batchProcess');
+    const runAnalysisBtn = document.getElementById('runAnalysisBtn');
+    const analysisDescription = document.getElementById('analysisDescription');
     
-    if (form) {
-        form.addEventListener('submit', function() {
-            spinner.classList.remove('d-none');
+    // Toggle between single and multi-select modes
+    multiSelectToggle.addEventListener('change', function() {
+        if (this.checked) {
+            singleSelectContainer.style.display = 'none';
+            multiSelectContainer.style.display = 'block';
+            singleSelect.removeAttribute('required');
+            updateDescription();
+        } else {
+            singleSelectContainer.style.display = 'block';
+            multiSelectContainer.style.display = 'none';
+            singleSelect.setAttribute('required', 'required');
+            updateDescription();
+        }
+    });
+    
+    // Select all companies
+    selectAllBtn.addEventListener('click', function() {
+        companyCheckboxes.forEach(checkbox => {
+            checkbox.checked = true;
         });
+        updateDescription();
+    });
+    
+    // Deselect all companies
+    deselectAllBtn.addEventListener('click', function() {
+        companyCheckboxes.forEach(checkbox => {
+            checkbox.checked = false;
+        });
+        updateDescription();
+    });
+    
+    // Update batch process description
+    batchProcessCheckbox.addEventListener('change', updateDescription);
+    
+    // Count selected companies
+    function countSelectedCompanies() {
+        return Array.from(companyCheckboxes).filter(checkbox => checkbox.checked).length;
     }
+    
+    // Update description based on settings
+    function updateDescription() {
+        if (multiSelectToggle.checked) {
+            const count = countSelectedCompanies();
+            if (count === 0) {
+                analysisDescription.textContent = "Please select at least one company";
+                runAnalysisBtn.disabled = true;
+            } else {
+                runAnalysisBtn.disabled = false;
+                if (batchProcessCheckbox.checked) {
+                    analysisDescription.textContent = `Will analyze ${count} companies individually, creating ${count} separate reports`;
+                } else {
+                    analysisDescription.textContent = `Will analyze ${count} companies together in a single comparative report`;
+                }
+            }
+        } else {
+            if (batchProcessCheckbox.checked) {
+                analysisDescription.textContent = "Will analyze the selected company and generate a separate report";
+            } else {
+                analysisDescription.textContent = "Will analyze the selected company and generate a report";
+            }
+        }
+    }
+    
+    // Update description when checkboxes change
+    companyCheckboxes.forEach(checkbox => {
+        checkbox.addEventListener('change', updateDescription);
+    });
+    
+    // Form submission
+    form.addEventListener('submit', function(e) {
+        // Validate form
+        if (multiSelectToggle.checked) {
+            // If in multi-select mode, make sure at least one company is selected
+            if (countSelectedCompanies() === 0) {
+                e.preventDefault();
+                alert('Please select at least one company');
+                return;
+            }
+        } else {
+            // If in single-select mode, make sure one company is selected
+            if (!singleSelect.value) {
+                e.preventDefault();
+                alert('Please select a company');
+                return;
+            }
+        }
+        
+        // Show loading spinner
+        spinner.classList.remove('d-none');
+        runAnalysisBtn.disabled = true;
+    });
+    
+    // Initial description
+    updateDescription();
 });
 </script>
 {% endblock %} 
