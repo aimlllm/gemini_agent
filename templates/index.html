@@ -57,6 +57,13 @@
                             </div>
                             <p class="mb-1">Manage companies and earnings release data</p>
                         </a>
+                        <a href="{{ url_for('edit_email_config') }}" class="list-group-item list-group-item-action">
+                            <div class="d-flex w-100 justify-content-between">
+                                <h5 class="mb-1">Email Configuration</h5>
+                                <span class="badge bg-primary rounded-pill">→</span>
+                            </div>
+                            <p class="mb-1">Configure email recipients and delivery settings</p>
+                        </a>
                         <a href="{{ url_for('edit_prompt_config') }}" class="list-group-item list-group-item-action">
                             <div class="d-flex w-100 justify-content-between">
                                 <h5 class="mb-1">Prompt Configuration</h5>
