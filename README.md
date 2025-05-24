@@ -68,12 +68,12 @@ graph TB
     CONFIG ~~~ STAKEHOLDERS
     
     %% Styling
-    classDef userClass fill:#E3F2FD,stroke:#1976D2,stroke-width:3px
-    classDef gcpClass fill:#FFF3E0,stroke:#F57C00,stroke-width:2px
-    classDef storageClass fill:#E8F5E8,stroke:#388E3C,stroke-width:2px
-    classDef apiClass fill:#FFEBEE,stroke:#D32F2F,stroke-width:2px
-    classDef configClass fill:#F3E5F5,stroke:#7B1FA2,stroke-width:2px
-    classDef outputClass fill:#E0F2F1,stroke:#00796B,stroke-width:2px
+    classDef userClass fill:#4A90E2,stroke:#2E5C8A,stroke-width:3px,color:#FFFFFF
+    classDef gcpClass fill:#FFB84D,stroke:#CC8F00,stroke-width:2px,color:#FFFFFF
+    classDef storageClass fill:#7ED321,stroke:#5AA016,stroke-width:2px,color:#FFFFFF
+    classDef apiClass fill:#F5A623,stroke:#C4841D,stroke-width:2px,color:#FFFFFF
+    classDef configClass fill:#9013FE,stroke:#6200EA,stroke-width:2px,color:#FFFFFF
+    classDef outputClass fill:#50E3C2,stroke:#00BFA5,stroke-width:2px,color:#FFFFFF
     
     class USER userClass
     class WEB,DOWN,ANALYZE,EMAIL gcpClass
