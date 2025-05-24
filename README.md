@@ -20,146 +20,137 @@ The Earnings Analysis System is a simple web application that runs on Google Clo
 
 ```mermaid
 graph TB
-    subgraph "👤 Users"
-        USER[Business Users<br/>Web Browser]
+    %% Users and Access
+    USER[👤 Business Users<br/>Web Browser]
+    
+    %% Core System Components
+    subgraph GCP["☁️ Google Cloud Platform - VM Instance"]
+        WEB[🌐 Flask Web Server<br/>Dashboard & API]
+        DOWN[📥 Downloader<br/>Get Documents]
+        ANALYZE[🤖 Analyzer<br/>Process with AI]
+        EMAIL[📧 Email Service<br/>Send Reports]
+        STORAGE[(💾 Local Storage<br/>Documents & Results)]
     end
     
-    subgraph "☁️ Google Cloud Platform"
-        subgraph "🖥️ VM Instance"
-            WEB[🌐 Flask Web Server<br/>Dashboard & API]
-            
-            subgraph "📦 Application Modules"
-                DOWN[📥 Downloader<br/>Get Documents]
-                ANALYZE[🤖 Analyzer<br/>Process with AI]
-                EMAIL[📧 Email Service<br/>Send Reports]
-            end
-            
-            STORAGE[(💾 Local Storage<br/>Documents & Results)]
-        end
-    end
+    %% External APIs
+    GEMINI[🧠 Gemini API<br/>AI Analysis]
+    GMAIL[📧 Gmail API<br/>Send Emails]
+    DOCS[🌍 Company Websites<br/>Earnings Documents]
     
-    subgraph "🔗 External Services"
-        GEMINI[🧠 Google Gemini API<br/>AI Analysis]
-        GMAIL[📧 Gmail API<br/>Send Emails]
-        DOCS[🌍 Company Websites<br/>Earnings Documents]
-    end
+    %% Configuration and Output
+    CONFIG[⚙️ Configuration<br/>• Email Recipients<br/>• Prompt Templates<br/>• Company Settings]
+    STAKEHOLDERS[📬 Business Stakeholders<br/>Email Reports]
     
-    subgraph "📬 Recipients & Configuration"
-        STAKEHOLDERS[Business Stakeholders<br/>Email Reports]
-        CONFIG[⚙️ Configuration<br/>• Email Recipients<br/>• Prompt Templates<br/>• Company Settings]
-    end
-    
-    %% User Flow
-    USER -->|Access Web UI| WEB
-    
-    %% Internal Flow
+    %% Main Flow Connections
+    USER --> WEB
     WEB --> DOWN
-    WEB --> ANALYZE  
+    WEB --> ANALYZE
     WEB --> EMAIL
-    DOWN --> STORAGE
-    ANALYZE --> STORAGE
     WEB --> CONFIG
     
-    %% External API Calls
+    %% Storage Connections
+    DOWN --> STORAGE
+    ANALYZE --> STORAGE
+    EMAIL --> STORAGE
+    
+    %% External API Connections
     DOWN -.->|Download| DOCS
     ANALYZE -.->|AI Processing| GEMINI
-    EMAIL -.->|Send Emails| GMAIL
+    EMAIL -.->|OAuth & Send| GMAIL
     
-    %% Output
-    EMAIL -.->|Reports| STAKEHOLDERS
+    %% Output Connection
+    EMAIL --> STAKEHOLDERS
+    
+    %% Positioning for compact layout
+    USER ~~~ GEMINI
+    GEMINI ~~~ GMAIL
+    GMAIL ~~~ DOCS
+    CONFIG ~~~ STAKEHOLDERS
     
     %% Styling
-    classDef userClass fill:#E3F2FD,stroke:#1976D2,stroke-width:2px
+    classDef userClass fill:#E3F2FD,stroke:#1976D2,stroke-width:3px
     classDef gcpClass fill:#FFF3E0,stroke:#F57C00,stroke-width:2px
-    classDef moduleClass fill:#E8F5E8,stroke:#388E3C,stroke-width:2px
+    classDef storageClass fill:#E8F5E8,stroke:#388E3C,stroke-width:2px
     classDef apiClass fill:#FFEBEE,stroke:#D32F2F,stroke-width:2px
     classDef configClass fill:#F3E5F5,stroke:#7B1FA2,stroke-width:2px
+    classDef outputClass fill:#E0F2F1,stroke:#00796B,stroke-width:2px
     
     class USER userClass
-    class WEB,DOWN,ANALYZE,EMAIL,STORAGE gcpClass
+    class WEB,DOWN,ANALYZE,EMAIL gcpClass
+    class STORAGE storageClass
     class GEMINI,GMAIL,DOCS apiClass
-    class STAKEHOLDERS,CONFIG configClass
+    class CONFIG configClass
+    class STAKEHOLDERS outputClass
 ```
 
 ### How It Works
 
-#### 🖥️ **Google Cloud VM Instance**
-- Runs the entire application on a single virtual machine
-- Provides secure, scalable hosting on Google's infrastructure
-- Accessible via web browser on port 8080
+The system is designed to be simple and straightforward - everything runs on a single Google Cloud VM with just a few core components working together.
+
+#### ☁️ **Google Cloud Platform - VM Instance**
+Your entire application lives on one virtual machine in Google Cloud. This makes it:
+- **Easy to manage**: Everything is in one place
+- **Cost-effective**: No need for multiple servers or complex infrastructure  
+- **Secure**: Protected by Google Cloud's built-in security
 
 #### 🌐 **Flask Web Server**
-- Modern web dashboard for all operations
-- Easy-to-use interface for running analyses
-- Configuration management through web forms
-- Real-time status updates during processing
+The heart of your system - a simple web application that provides:
+- **Dashboard Interface**: Click-and-go operations, no command line needed
+- **Real-time Updates**: See progress as your analysis runs
+- **Configuration Management**: Change settings through simple web forms
+- **Report Viewing**: Browse and share analysis results instantly
 
-#### 📦 **Core Application Modules**
+#### 📦 **Core Components Working Together**
 
 **📥 Downloader**
-- Fetches earnings documents from company websites
-- Supports PDFs, HTML, and text formats
-- Stores documents locally for processing
+- Automatically fetches earnings documents from company websites
+- Handles different file types (PDFs, web pages, documents)
+- Saves everything locally so you don't lose data
 
-**🤖 Analyzer**
-- Sends documents to Google Gemini AI for analysis
-- Uses custom business intelligence prompts
-- Generates executive-ready reports in markdown format
+**🤖 Analyzer**  
+- Sends your documents to Google's AI (Gemini) for smart analysis
+- Uses customizable prompts to focus on what matters to your business
+- Generates professional reports ready for executives
 
 **📧 Email Service**
-- Authenticates with Gmail using secure OAuth2
-- Sends professional HTML email reports
-- Manages recipient lists and delivery
+- Connects securely to Gmail to send reports
+- Formats emails professionally with your analysis
+- Manages your recipient lists automatically
 
-#### 💾 **Local Storage**
-- **Documents**: Downloaded earnings files organized by company/quarter
-- **Results**: Generated analysis reports ready for sharing
-- **Configuration**: Company settings, email lists, and custom prompts
+**💾 Local Storage**
+- Keeps all your documents organized by company and date
+- Stores analysis results for easy access later
+- Maintains configuration files for your settings
 
-#### 🔗 **External API Integration**
+#### 🔗 **External Connections (Just 3 Simple APIs)**
 
-**🧠 Google Gemini API**
-- Advanced AI for document analysis
-- Extracts business insights and competitive intelligence
-- Customizable analysis focus and depth
+**🧠 Gemini API**: Google's AI does the heavy lifting of analyzing documents and extracting business insights
 
-**📧 Gmail API**
-- Secure email sending capability
-- Professional report formatting
-- Automated distribution to stakeholders
+**📧 Gmail API**: Securely sends your analysis reports to stakeholders without you having to copy/paste
 
-**🌍 Company Websites**
-- Investor relations pages
-- SEC filings and earnings releases
-- Call transcripts and financial documents
+**🌍 Company Websites**: Automatically downloads the latest earnings documents so you don't have to hunt for them
 
-### Simple Data Flow
+#### ⚙️ **Configuration Made Simple**
+Everything is configured through easy-to-edit settings:
+- **Email Recipients**: Who gets which reports
+- **Prompt Templates**: What questions the AI asks when analyzing
+- **Company Settings**: Which companies to track and where to find their documents
 
-```mermaid
-sequenceDiagram
-    participant User as 👤 User
-    participant Web as 🌐 Web Server
-    participant Down as 📥 Downloader
-    participant AI as 🤖 Analyzer
-    participant Email as 📧 Email Service
-    
-    User->>Web: 1. Select company & start analysis
-    Web->>Down: 2. Download earnings documents
-    Down-->>Web: 3. Documents ready
-    Web->>AI: 4. Analyze with Gemini AI
-    AI-->>Web: 5. Analysis complete
-    Web->>Email: 6. Send email report
-    Email-->>User: 7. Analysis delivered
-```
+#### 📬 **Automatic Delivery**
+Once everything is set up, the system runs on autopilot:
+1. Downloads new earnings documents
+2. Analyzes them with AI
+3. Sends professional reports to your team
+4. Stores everything for future reference
 
-### Key Benefits
+### Why This Design is Simple Yet Powerful
 
-- **🚀 Simple Setup**: Single VM deployment on Google Cloud
-- **🎯 Easy to Use**: Web-based interface for all operations  
-- **🤖 AI-Powered**: Advanced document analysis using Google Gemini
-- **📧 Automated**: Automatic email delivery to stakeholders
-- **🔒 Secure**: OAuth2 authentication and GCP security
-- **⚙️ Configurable**: Customizable companies, prompts, and recipients
+- **Single VM**: No complex cloud architecture to manage
+- **Web Interface**: No technical skills needed for daily use
+- **Automated Workflow**: Set it up once, runs automatically
+- **Local Storage**: No dependency on external databases or file systems
+- **Three APIs Only**: Minimal external dependencies (Gemini + Gmail + company websites)
+- **Self-Contained**: Everything you need is in one place
 
 ## Quick Setup
 
