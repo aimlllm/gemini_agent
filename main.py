@@ -101,8 +101,8 @@ def main():
         args.output_dir = os.path.join(os.getcwd(), 'results')
         logging.warning(f"Using fallback output directory: {args.output_dir}")
         try:
-            if not os.path.exists(args.output_dir):
-                os.makedirs(args.output_dir)
+    if not os.path.exists(args.output_dir):
+        os.makedirs(args.output_dir)
         except (OSError, PermissionError) as e:
             logging.error(f"Could not create fallback output directory: {e}")
             logging.error("Analysis will be performed but results cannot be saved")
@@ -255,10 +255,10 @@ def main():
         analysis_path = os.path.join(args.output_dir, analysis_filename)
         
         try:
-            with open(analysis_path, 'w') as f:
-                f.write(email_markdown)
-            
-            logging.info(f"GCP impact analysis saved to {analysis_path} (email-friendly format)")
+        with open(analysis_path, 'w') as f:
+            f.write(email_markdown)
+        
+        logging.info(f"GCP impact analysis saved to {analysis_path} (email-friendly format)")
         except (OSError, PermissionError) as e:
             logging.error(f"Could not save analysis to {analysis_path}: {e}")
             print("\nAnalysis Results:")
@@ -268,27 +268,27 @@ def main():
         
         # Send email using the email configuration (if not skipped)
         if not args.skip_email:
-            try:
-                # Check if email_config.json exists
-                if os.path.exists(config.EMAIL_CONFIG_PATH):
-                    logging.info(f"Sending analysis via email (configured in {config.EMAIL_CONFIG_PATH})")
+        try:
+            # Check if email_config.json exists
+            if os.path.exists(config.EMAIL_CONFIG_PATH):
+                logging.info(f"Sending analysis via email (configured in {config.EMAIL_CONFIG_PATH})")
                     try:
-                        email_result = send_analysis_email(analysis_path)
-                        
-                        if email_result.get('success', False):
-                            recipients = email_result.get('recipients', [])
-                            cc = email_result.get('cc', [])
-                            all_recipients = recipients + cc
-                            logging.info(f"Email sent successfully to {', '.join(all_recipients)}")
-                        else:
-                            error = email_result.get('error', 'Unknown error')
-                            logging.info(f"Email not sent: {error}")
+                email_result = send_analysis_email(analysis_path)
+                
+                if email_result.get('success', False):
+                    recipients = email_result.get('recipients', [])
+                    cc = email_result.get('cc', [])
+                    all_recipients = recipients + cc
+                    logging.info(f"Email sent successfully to {', '.join(all_recipients)}")
+                else:
+                    error = email_result.get('error', 'Unknown error')
+                    logging.info(f"Email not sent: {error}")
                     except Exception as e:
                         logging.error(f"Error during email sending: {str(e)}")
                         logging.info("Email functionality skipped - you can still view the analysis file")
-                else:
-                    logging.info(f"Email not sent ({config.EMAIL_CONFIG_PATH} not found)")
-            except Exception as e:
+            else:
+                logging.info(f"Email not sent ({config.EMAIL_CONFIG_PATH} not found)")
+        except Exception as e:
                 logging.error(f"Error in email configuration: {str(e)}")
                 logging.info("Analysis completed but email functionality was skipped")
         else:

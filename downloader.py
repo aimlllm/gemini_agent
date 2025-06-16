@@ -65,8 +65,8 @@ class EarningsDocDownloader:
             return None
         
         # Extract filename from URL or generate one
-        parsed_url = urlparse(url)
-        filename = os.path.basename(parsed_url.path)
+            parsed_url = urlparse(url)
+                filename = os.path.basename(parsed_url.path)
         
         # If filename is empty or doesn't have an extension, create a default one
         if not filename or '.' not in filename:
@@ -76,7 +76,7 @@ class EarningsDocDownloader:
         
         # Full path to save the file
         file_path = os.path.join(dir_path, filename)
-        
+            
         # If file already exists, skip download
         if os.path.exists(file_path):
             logging.info(f"File already exists at {file_path}")
@@ -102,14 +102,14 @@ class EarningsDocDownloader:
                 
             if response.status_code != 200:
                 logging.error(f"URL returned status code {response.status_code}: {url}")
-                return None
-            
+                        return None
+                    
             # Proceed with download
             response = requests.get(url, headers=headers, timeout=30)
-            response.raise_for_status()
-            
-            with open(file_path, 'wb') as f:
-                f.write(response.content)
+                    response.raise_for_status()
+                    
+                    with open(file_path, 'wb') as f:
+                        f.write(response.content)
             
             logging.info(f"Downloaded {url} to {file_path}")
             return file_path

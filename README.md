@@ -351,7 +351,7 @@ Customize how Gemini analyzes the documents. The prompt supports variables:
    python send_email.py --reauth
    
    # Open the displayed URL in your local browser to complete authentication
-   ```
+```
 
 ## Troubleshooting
 
@@ -381,7 +381,7 @@ Customize how Gemini analyzes the documents. The prompt supports variables:
 If you see "Read-only file system" errors:
 
 1. **Check current directory permissions**:
-   ```bash
+```bash
    ls -la
    ```
 

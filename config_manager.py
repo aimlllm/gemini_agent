@@ -76,6 +76,32 @@ class ConfigManager:
         quarters = releases[latest_year]
         
         # Find the most recent quarter with a date (not expected_date)
+        # Instead of alphabetical sorting, let's find the quarter with the most recent actual date
+        latest_quarter = None
+        latest_date = None
+        latest_data = None
+        
+        for quarter, data in quarters.items():
+            if "date" in data and data["date"]:
+                try:
+                    # Parse the date to compare chronologically
+                    from datetime import datetime
+                    # Handle various date formats like "March 10, 2025", "June 11, 2025", etc.
+                    quarter_date = datetime.strptime(data["date"], "%B %d, %Y")
+                    
+                    if latest_date is None or quarter_date > latest_date:
+                        latest_date = quarter_date
+                        latest_quarter = quarter
+                        latest_data = data
+                except (ValueError, TypeError) as e:
+                    # If date parsing fails, log and skip this quarter
+                    logging.warning(f"Could not parse date '{data['date']}' for {ticker} {quarter}: {e}")
+                    continue
+        
+        if latest_quarter and latest_data:
+            return latest_year, latest_quarter, latest_data
+        
+        # If no quarters have a parseable date, fall back to alphabetical sorting
         for quarter, data in sorted(quarters.items(), reverse=True):
             if "date" in data:
                 return latest_year, quarter, data
@@ -141,4 +167,9 @@ class ConfigManager:
             del self.config_data["companies"][ticker]
             self._save_config()
             return True
-        return False 
+        return False
+    
+    def reload_config(self):
+        """Reload configuration from file."""
+        self.config_data = self._load_config()
+        return self.config_data 

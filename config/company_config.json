@@ -118,10 +118,10 @@
             "call_transcript": "https://www.fool.com/earnings/call-transcripts/2025/03/10/oracle-orcl-q3-2025-earnings-call-transcript/"
           },
           "Q4": {
-            "expected_date": "June 10, 2025",
-            "expected_time": "after-market close",
-            "earnings_release": null,
-            "call_transcript": null
+            "date": "June 11, 2025",
+            "time": "after-market close",
+            "earnings_release": "https://www.prnewswire.com/news-releases/oracle-announces-fiscal-2025-fourth-quarter-and-fiscal-full-year-financial-results-302479455.html",
+            "call_transcript": "https://www.insidermonkey.com/blog/oracle-corporation-nyseorcl-q4-2025-earnings-call-transcript-1552014/"
           }
         }
       }

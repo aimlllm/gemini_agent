@@ -133,22 +133,22 @@ def send_email_for_report(report_path, force_reauth=False):
     logging.info(f"Sending email for report: {report_path}")
     
     try:
-        # Create an email service instance
-        email_service = EmailService()
+    # Create an email service instance
+    email_service = EmailService()
+    
+    # Authenticate with force_refresh if requested
+    if email_service.authenticate(force_refresh=force_reauth):
+        result = email_service.send_gcp_impact_email(report_path)
         
-        # Authenticate with force_refresh if requested
-        if email_service.authenticate(force_refresh=force_reauth):
-            result = email_service.send_gcp_impact_email(report_path)
-            
-            if result['success']:
-                recipients = result.get('recipients', [])
-                cc = result.get('cc', [])
-                all_recipients = recipients + cc
+        if result['success']:
+            recipients = result.get('recipients', [])
+            cc = result.get('cc', [])
+            all_recipients = recipients + cc
                 success_msg = f"Email sent successfully to {', '.join(all_recipients)}"
                 logging.info(success_msg)
-                return True
-            else:
-                error = result.get('error', 'Unknown error')
+            return True
+        else:
+            error = result.get('error', 'Unknown error')
                 error_msg = f"Failed to send email: {error}"
                 logging.error(error_msg)
                 print(error_msg, file=sys.stderr)
@@ -259,7 +259,7 @@ def main():
     if args.list_reports:
         list_reports()
         return 0
-    
+        
     # Test credentials
     if args.test_credentials:
         if test_credentials():
@@ -274,7 +274,7 @@ def main():
         success = force_reauth()
         print(f"\nReauthentication {'succeeded' if success else 'failed'}.")
         return 0 if success else 1
-    
+        
     # Send email for latest report
     if args.latest:
         report_path = get_latest_report_for_company(args.latest)
@@ -299,14 +299,14 @@ def main():
         return 1
     
     # Send the email
-    success = send_email_for_report(report_path, force_reauth=args.force_reauth)
-    
-    if success:
-        print(f"\nEmail sent successfully for report: {os.path.basename(report_path)}")
+        success = send_email_for_report(report_path, force_reauth=args.force_reauth)
+        
+        if success:
+            print(f"\nEmail sent successfully for report: {os.path.basename(report_path)}")
         return 0
-    else:
-        print(f"\nFailed to send email for report: {os.path.basename(report_path)}")
-        print("Check the logs for more details.")
+        else:
+            print(f"\nFailed to send email for report: {os.path.basename(report_path)}")
+            print("Check the logs for more details.")
         return 1
 
 if __name__ == "__main__":

@@ -97,37 +97,37 @@ class EarningsAnalyzer:
                         logging.error(f"Error reading {file_path}: {str(e)}")
             else:
                 # Standard single-company analysis
-                for doc_type, doc_info in documents.items():
-                    file_path = doc_info['path']
-                    
-                    # Check if file exists
-                    if not os.path.exists(file_path):
-                        logging.warning(f"File not found: {file_path}. Skipping.")
-                        continue
-                    
-                    # Determine file MIME type
-                    mime_type = self._get_mime_type(file_path)
-                    
-                    # Label what type of document this is
-                    doc_label = "earnings release" if doc_type == "earnings_release" else "earnings call transcript"
-                    parts.append(types.Part(text=f"\nDOCUMENT TYPE: {doc_label.upper()}\n"))
-                    
-                    # Read the file as binary
-                    try:
-                        with open(file_path, 'rb') as f:
-                            file_data = f.read()
-                            
-                        parts.append(
-                            types.Part(
-                                inline_data=types.Blob(
-                                    mime_type=mime_type,
-                                    data=file_data
-                                )
+            for doc_type, doc_info in documents.items():
+                file_path = doc_info['path']
+                
+                # Check if file exists
+                if not os.path.exists(file_path):
+                    logging.warning(f"File not found: {file_path}. Skipping.")
+                    continue
+                
+                # Determine file MIME type
+                mime_type = self._get_mime_type(file_path)
+                
+                # Label what type of document this is
+                doc_label = "earnings release" if doc_type == "earnings_release" else "earnings call transcript"
+                parts.append(types.Part(text=f"\nDOCUMENT TYPE: {doc_label.upper()}\n"))
+                
+                # Read the file as binary
+                try:
+                    with open(file_path, 'rb') as f:
+                        file_data = f.read()
+                        
+                    parts.append(
+                        types.Part(
+                            inline_data=types.Blob(
+                                mime_type=mime_type,
+                                data=file_data
                             )
                         )
-                        logging.info(f"Successfully loaded {doc_label}: {os.path.basename(file_path)}")
-                    except Exception as e:
-                        logging.error(f"Error reading {file_path}: {str(e)}")
+                    )
+                    logging.info(f"Successfully loaded {doc_label}: {os.path.basename(file_path)}")
+                except Exception as e:
+                    logging.error(f"Error reading {file_path}: {str(e)}")
             
             # Load the custom prompt from config if available
             custom_prompt = None
@@ -208,43 +208,43 @@ class EarningsAnalyzer:
                         year=year
                     )
                 else:
-                    prompt = f"""
-                    You are a strategic analyst for Google Cloud Platform, analyzing {company_name}'s {quarter} {year} earnings documents.
-                    
-                    Create an email-ready analysis that combines insights from all provided documents, focusing on:
-                    
-                    ## Financial Overview
-                    - Key financial results with cloud market implications
-                    - YoY growth rates in relevant areas (revenue, profit, R&D)
-                    
-                    ## Cloud Strategy and Competitive Position
-                    - Current cloud strategy and market position
-                    - Strategic direction changes or investments
-                    - Competitive positioning against Google Cloud
+            prompt = f"""
+            You are a strategic analyst for Google Cloud Platform, analyzing {company_name}'s {quarter} {year} earnings documents.
+            
+            Create an email-ready analysis that combines insights from all provided documents, focusing on:
+            
+            ## Financial Overview
+            - Key financial results with cloud market implications
+            - YoY growth rates in relevant areas (revenue, profit, R&D)
+            
+            ## Cloud Strategy and Competitive Position
+            - Current cloud strategy and market position
+            - Strategic direction changes or investments
+            - Competitive positioning against Google Cloud
 
-                    ## Technology and AI Investments
-                    - Technology investments that might affect cloud adoption
-                    - AI/ML initiatives that could complement or compete with GCP offerings
-                    - Data center expansions or efficiency improvements
-                    - Enterprise sales strategy changes relevant to cloud providers
-                    
-                    ## Customer and Partner Intelligence
-                    - Notable customer wins or losses in cloud services
-                    - Partner ecosystem developments relevant to cloud
-                    - Changes in enterprise customer spending patterns
-                    
-                    ## Strategic Implications for Google/GCP
-                    - Opportunities for Google Cloud based on these earnings documents
-                    - Potential threats to Google Cloud's market position
-                    - Recommended actions for GCP leadership
+            ## Technology and AI Investments
+            - Technology investments that might affect cloud adoption
+            - AI/ML initiatives that could complement or compete with GCP offerings
+            - Data center expansions or efficiency improvements
+            - Enterprise sales strategy changes relevant to cloud providers
+            
+            ## Customer and Partner Intelligence
+            - Notable customer wins or losses in cloud services
+            - Partner ecosystem developments relevant to cloud
+            - Changes in enterprise customer spending patterns
+            
+            ## Strategic Implications for Google/GCP
+            - Opportunities for Google Cloud based on these earnings documents
+            - Potential threats to Google Cloud's market position
+            - Recommended actions for GCP leadership
 
-                    Format as clean, professional markdown suitable for immediate email distribution.
-                    Be concise, data-driven, and actionable, focusing on strategic implications.
-                    For each insight, specify the exact source (document type and location).
-                    
-                    IMPORTANT: Do NOT include phrases like "Executive Summary" or "Here is an analysis of..." in your response.
-                    Start directly with the content and ensure the analysis is self-contained and ready to be sent as is.
-                    """
+            Format as clean, professional markdown suitable for immediate email distribution.
+            Be concise, data-driven, and actionable, focusing on strategic implications.
+            For each insight, specify the exact source (document type and location).
+            
+            IMPORTANT: Do NOT include phrases like "Executive Summary" or "Here is an analysis of..." in your response.
+            Start directly with the content and ensure the analysis is self-contained and ready to be sent as is.
+            """
             
             parts.append(types.Part(text=prompt))
             
@@ -264,10 +264,10 @@ class EarningsAnalyzer:
             if is_comparative:
                 document_urls = {doc_key: "multiple documents" for doc_key in documents.keys()}
             else:
-                document_urls = {
-                    doc_type: doc_info['url'] 
-                    for doc_type, doc_info in documents.items()
-                }
+            document_urls = {
+                doc_type: doc_info['url'] 
+                for doc_type, doc_info in documents.items()
+            }
             
             return {
                 'company': company_name,
